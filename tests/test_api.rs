@@ -257,3 +257,66 @@ async fn test_sepay_ptn_full_color_template() {
     assert_eq!(img.width(), 540);
     assert_eq!(img.height(), 687);
 }
+
+#[tokio::test]
+async fn test_api_endpoints_with_large_amount_and_special_char_memo() {
+    let app = app_router();
+    // 10 billion VND with special characters, emojis, and 100+ chars in memo
+    let uri = "/api/pay?bank=TPB&acc=69238686888&amount=10000000000&app=vcb&memo=DH%2312345%20%40shop%20%28VIP%29%20Ca%20phe%20%E2%98%95%EF%B8%8F%20%26%20Mua%20hang%20sieu%20dai%20vuot%20qua%20gioi%20han%2050%20ky%20tu%20cua%20he%20thong%20vietqr";
+    let response = app
+        .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    let payload = json["payload"].as_str().unwrap();
+    assert!(payload.starts_with("000201010212"));
+    assert!(payload.contains("541110000000000")); // 10 billion
+    assert!(payload.contains("69238686888"));
+    // Memo should be safely sanitized without emojis and truncated to <= 50 chars
+    assert!(payload.contains("62540850DH12345 shop VIP Ca phe Mua hang sieu dai vuot qua"));
+    assert!(json["launch_url"].as_str().unwrap().contains("am=10000000000"));
+}
+
+#[tokio::test]
+async fn test_sepay_img_endpoint_with_huge_amount_and_long_memo() {
+    let app = app_router();
+    // 500 billion VND with long special char description
+    let uri = "/img?bank=TPB&acc=69238686888&amount=500000000000&name=PHAM%20THANH%20NAM&des=Mua%20bat%20dong%20san%20so%201%20Ha%20Noi%20500%20ty%21%20%40%23%24%25%5E%26&template=ptn";
+    let response = app
+        .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let content_type = response.headers().get("content-type").unwrap().to_str().unwrap();
+    assert_eq!(content_type, "image/png");
+
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let img = image::load_from_memory(&bytes).expect("valid high-amount PTN PNG");
+    assert_eq!(img.width(), 540);
+    assert_eq!(img.height(), 687);
+}
+
+#[tokio::test]
+async fn test_qr_pay_hub_xss_safety_with_special_chars() {
+    let app = app_router();
+    // Attempt XSS and malicious characters in memo, amount, and name
+    let uri = "/qr/pay?ba=69238686888@tpb&am=10000000000&tn=%3Cscript%3Ealert%28%27XSS%27%29%3C%2Fscript%3E&bn=%3Cb%3ENAM%3C%2Fb%3E";
+    let response = app
+        .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let html = String::from_utf8_lossy(&body);
+
+    // Verify raw unescaped script tag does NOT exist in HTML
+    assert!(!html.contains("<script>alert('XSS')</script>"));
+    // Verify formatted large amount is shown
+    assert!(html.contains("10.000.000.000 đ"));
+}
