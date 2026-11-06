@@ -195,13 +195,13 @@ Chạy bộ kiểm thử toàn diện:
 ```bash
 cargo test
 ```
-Toàn bộ 23 bài test kiểm tra TLV, CRC16, 65+ BIN, khử dấu tiếng Việt, nén PNG, Deeplink 33+ ngân hàng và toàn bộ API endpoint.
+Toàn bộ 31 bài test kiểm tra TLV, CRC16, 65+ BIN, khử dấu tiếng Việt, nén PNG, Deeplink 33+ ngân hàng, số tiền lớn và toàn bộ API endpoint.
 
 ---
 
 ## 📄 Bản Quyền & Tác Giả
 
-Dự án được xây dựng và phát triển bởi **Phạm Thành Nam** ([ptn1411@gmail.com](mailto:ptn1411@gmail.com)).
+Dự án được xây dựng và phát triển bởi **Phạm Thành Nam**.
 Phát hành theo giấy phép MIT.
 
 ---
