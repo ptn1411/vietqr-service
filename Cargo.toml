@@ -2,7 +2,7 @@
 name = "vietqr-service"
 version = "0.1.0"
 edition = "2021"
-authors = ["Pham Thanh Nam <ptn1411@gmail.com>"]
+authors = ["Pham Thanh Nam"]
 description = "High-performance VietQR generator, custom logo & footer branding, bank app deeplink engine & web studio"
 
 [dependencies]
