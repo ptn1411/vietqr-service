@@ -1,0 +1,26 @@
+[package]
+name = "vietqr-service"
+version = "0.1.0"
+edition = "2021"
+authors = ["Pham Thanh Nam <ptn1411@gmail.com>"]
+description = "High-performance VietQR generator, custom logo & footer branding, bank app deeplink engine & web studio"
+
+[dependencies]
+axum = { version = "0.7", features = ["multipart"] }
+tokio = { version = "1", features = ["full"] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.5", features = ["cors", "trace", "fs"] }
+qrcode = { version = "0.14", default-features = false }
+ab_glyph = "0.2"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
+flate2 = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+url = "2.5"
+urlencoding = "2.1"
+
+[dev-dependencies]
+reqwest = { version = "0.12", features = ["json", "multipart"] }

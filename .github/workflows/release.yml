@@ -1,0 +1,148 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name for release (e.g. v0.1.0)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            asset_name: windows-amd64
+            archive_ext: zip
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            asset_name: linux-amd64
+            archive_ext: tar.gz
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            asset_name: linux-musl-amd64
+            archive_ext: tar.gz
+            use_musl: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Resolve tag name
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.tag_name }}" ]; then
+            echo "TAG_NAME=${{ github.event.inputs.tag_name }}" >> $GITHUB_ENV
+          else
+            echo "TAG_NAME=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+          fi
+
+      - name: Install musl-tools (Linux musl only)
+        if: matrix.use_musl
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Package Windows archive
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $pkgName = "vietqr-service-${{ env.TAG_NAME }}-${{ matrix.asset_name }}"
+          New-Item -ItemType Directory -Path "dist/$pkgName" -Force | Out-Null
+          Copy-Item "target/${{ matrix.target }}/release/vietqr-service.exe" -Destination "dist/$pkgName/"
+          Copy-Item "README.md" -Destination "dist/$pkgName/"
+          Copy-Item "LICENSE" -Destination "dist/$pkgName/"
+          Compress-Archive -Path "dist/$pkgName/*" -DestinationPath "$pkgName.zip"
+          $hash = (Get-FileHash -Algorithm SHA256 "$pkgName.zip").Hash.ToLower()
+          "$hash  $pkgName.zip" | Out-File -Encoding utf8 -FilePath "$pkgName.zip.sha256"
+
+      - name: Package Linux archive
+        if: matrix.os != 'windows-latest'
+        shell: bash
+        run: |
+          PKG_NAME="vietqr-service-${{ env.TAG_NAME }}-${{ matrix.asset_name }}"
+          mkdir -p "dist/$PKG_NAME"
+          chmod +x "target/${{ matrix.target }}/release/vietqr-service"
+          cp "target/${{ matrix.target }}/release/vietqr-service" "dist/$PKG_NAME/"
+          cp "README.md" "dist/$PKG_NAME/"
+          cp "LICENSE" "dist/$PKG_NAME/"
+          tar -czvf "$PKG_NAME.tar.gz" -C dist "$PKG_NAME"
+          sha256sum "$PKG_NAME.tar.gz" > "$PKG_NAME.tar.gz.sha256"
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.target }}
+          path: |
+            *.zip
+            *.tar.gz
+            *.sha256
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Resolve tag name
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.tag_name }}" ]; then
+            echo "TAG_NAME=${{ github.event.inputs.tag_name }}" >> $GITHUB_ENV
+          else
+            echo "TAG_NAME=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+          fi
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: binary-*
+          merge-multiple: true
+          path: dist-release
+
+      - name: Generate SHA256SUMS file
+        run: |
+          cd dist-release
+          cat *.sha256 > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          name: VietQR Service ${{ env.TAG_NAME }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          files: |
+            dist-release/*.zip
+            dist-release/*.tar.gz
+            dist-release/SHA256SUMS.txt

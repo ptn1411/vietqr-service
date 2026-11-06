@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Thanh toán VietQR - Cổng Chuyển Khoản Nhanh 24/7</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --card-border: #e2e8f0;
+      --card-border-highlight: #10b981;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --primary: #047857;
+      --primary-hover: #065f46;
+      --accent: #0369a1;
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif;
+      min-height: 100vh;
+      padding: 24px 16px 48px;
+      line-height: 1.5;
+    }
+    .wrap {
+      max-width: 480px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .header-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 4px;
+    }
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.2px;
+    }
+    .brand-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: #0369a1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .badge-secure {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #047857;
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 22px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.03);
+    }
+    .card.highlight {
+      border-color: #34d399;
+      box-shadow: 0 4px 20px rgba(16, 185, 129, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+    .amount-display {
+      text-align: center;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--card-border);
+      margin-bottom: 16px;
+    }
+    .amount-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    .amount-value {
+      font-size: 28px;
+      font-weight: 800;
+      color: #047857;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.5px;
+    }
+    .qr-box {
+      background: #ffffff;
+      padding: 16px;
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      max-width: 250px;
+      margin: 0 auto 16px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+    .qr-box img {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 6px;
+    }
+    .actions-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, transform 0.1s, box-shadow 0.15s;
+      border: 1px solid transparent;
+      user-select: none;
+    }
+    .btn:active {
+      transform: scale(0.98);
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: #ffffff;
+      box-shadow: 0 1px 3px rgba(4, 120, 87, 0.25);
+    }
+    .btn-primary:hover {
+      background: var(--primary-hover);
+      color: #ffffff;
+    }
+    .btn-secondary {
+      background: #f1f5f9;
+      border-color: #cbd5e1;
+      color: #0f172a;
+    }
+    .btn-secondary:hover {
+      background: #e2e8f0;
+      border-color: #94a3b8;
+    }
+    .tip-box {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 13px;
+      color: #1e3a8a;
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+    .tip-box strong {
+      color: #0369a1;
+    }
+    .info-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .info-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+      padding: 6px 0;
+      border-bottom: 1px dashed var(--card-border);
+    }
+    .info-row:last-child {
+      border-bottom: 0;
+    }
+    .info-lbl {
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    .info-val {
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-variant-numeric: tabular-nums;
+    }
+    .copy-pill {
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      color: #0369a1;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .copy-pill:hover {
+      background: #0369a1;
+      border-color: #0369a1;
+      color: #ffffff;
+    }
+    .section-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .search-box {
+      position: relative;
+      margin-bottom: 12px;
+    }
+    .search-input {
+      width: 100%;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 10px 12px 10px 36px;
+      font-size: 13px;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .search-input:focus {
+      border-color: #047857;
+      box-shadow: 0 0 0 3px rgba(4, 120, 87, 0.15);
+    }
+    .search-icon {
+      position: absolute;
+      left: 11px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+    .bank-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      max-height: 380px;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+    .bank-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #ffffff;
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      text-align: left;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s, transform 0.15s, box-shadow 0.15s;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+    }
+    .bank-btn:hover, .bank-btn:focus-visible {
+      background: #f8fafc;
+      border-color: #0369a1;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(3, 105, 161, 0.1);
+    }
+    .bank-code {
+      font-weight: 800;
+      font-size: 11px;
+      color: #0369a1;
+      min-width: 42px;
+      text-transform: uppercase;
+    }
+    .bank-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      overflow: hidden;
+      flex: 1;
+    }
+    .bank-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #1e293b;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .tag-auto {
+      align-self: flex-start;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: #ecfdf5;
+      color: #047857;
+      border: 1px solid #a7f3d0;
+    }
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #0f172a;
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 10px 20px;
+      border-radius: 24px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s, transform 0.2s;
+      z-index: 999;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    .footer-note {
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body data-auto-app="{{AUTO_APP}}">
+<div class="wrap">
+  <!-- Top Bar -->
+  <div class="header-bar">
+    <div class="brand-title">
+      <div class="brand-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 7h.01M17 7h.01M7 17h.01M17 17h.01"/></svg>
+      </div>
+      <span>Cổng Thanh Toán VietQR</span>
+    </div>
+    <div class="badge-secure">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Napas 24/7 An Toàn
+    </div>
+  </div>
+
+  <!-- QR Main Card -->
+  <div class="card highlight" id="qr-card">
+    <div class="amount-display">
+      <div class="amount-label">Số tiền thanh toán</div>
+      <div class="amount-value">{{AMOUNT}}</div>
+    </div>
+
+    <div class="qr-box">
+      <img src="{{QR_IMG_URL}}" alt="Mã QR Chuyển Khoản" id="qr-img">
+    </div>
+
+    <div class="actions-row">
+      <a href="{{QR_IMG_URL}}" download="vietqr-{{ACCOUNT}}.png" class="btn btn-primary" id="btn-save-qr">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+        Lưu ảnh QR
+      </a>
+      <button type="button" class="btn btn-secondary" id="btn-copy-all">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+        Sao chép STK
+      </button>
+    </div>
+
+    <div class="tip-box">
+      <strong>Mẹo chuyển khoản nhanh 100%:</strong> Bấm nút <strong>"Lưu ảnh QR"</strong> ở trên, sau đó mở ứng dụng Ngân hàng của bạn ➡️ chọn <strong>Quét mã QR</strong> ➡️ chọn <strong>Ảnh từ Thư viện</strong> để hệ thống tự động điền đủ Số tiền & Nội dung!
+    </div>
+
+    <div class="info-list">
+      <div class="info-row">
+        <span class="info-lbl">Ngân hàng nhận</span>
+        <span class="info-val">{{BANK}}</span>
+      </div>
+      {{HOLDER_ROW}}
+      <div class="info-row">
+        <span class="info-lbl">Số tài khoản</span>
+        <span class="info-val mono">{{ACCOUNT}} <button type="button" class="copy-pill" data-copy="{{ACCOUNT}}">Sao chép</button></span>
+      </div>
+      <div class="info-row">
+        <span class="info-lbl">Số tiền</span>
+        <span class="info-val mono">{{AMOUNT}} <button type="button" class="copy-pill" data-copy="{{RAW_AMOUNT}}">Sao chép</button></span>
+      </div>
+      {{MEMO_ROW}}
+    </div>
+  </div>
+
+  <!-- Bank Apps Card -->
+  <div class="card">
+    <div class="section-title">
+      <span>Mở ứng dụng Ngân Hàng</span>
+      <span style="font-size: 12px; color: var(--accent); font-weight: 600;">33+ Ngân hàng</span>
+    </div>
+
+    <div class="search-box">
+      <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/></svg>
+      <input type="text" class="search-input" id="bank-search" placeholder="Tìm theo tên hoặc mã (MB, VCB, TPB, ACB...)" autocomplete="off">
+    </div>
+
+    <div class="bank-grid" id="bank-grid">
+      {{BANK_BUTTONS}}
+    </div>
+  </div>
+
+  <div class="footer-note">
+    Dịch vụ chuyển tiền nhanh liên ngân hàng Napas 24/7 &bull; An toàn & Bảo mật
+  </div>
+</div>
+
+<div class="toast" id="toast">
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+  <span id="toast-text">Đã sao chép!</span>
+</div>
+
+<script>
+(function(){
+  var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  var isAndroid = /Android/.test(navigator.userAgent);
+  var toast = document.getElementById("toast");
+  var toastText = document.getElementById("toast-text");
+  var toastTimer = null;
+
+  function showToast(msg) {
+    if (toastTimer) clearTimeout(toastTimer);
+    toastText.textContent = msg;
+    toast.className = "toast show";
+    toastTimer = setTimeout(function(){ toast.className = "toast"; }, 2000);
+  }
+
+  document.querySelectorAll("[data-copy]").forEach(function(el){
+    el.addEventListener("click", function(){
+      var text = this.getAttribute("data-copy");
+      if (navigator.clipboard && text) {
+        navigator.clipboard.writeText(text).then(function(){
+          showToast("Đã sao chép: " + text);
+        });
+      }
+    });
+  });
+
+  var btnCopyAll = document.getElementById("btn-copy-all");
+  if (btnCopyAll) {
+    btnCopyAll.addEventListener("click", function(){
+      var text = "{{ACCOUNT}}";
+      if (navigator.clipboard && text) {
+        navigator.clipboard.writeText(text).then(function(){
+          showToast("Đã sao chép STK: " + text);
+        });
+      }
+    });
+  }
+
+  function launchApp(btn) {
+    var ios = btn.getAttribute("data-ios");
+    var android = btn.getAttribute("data-android");
+
+    if (isIOS && ios) {
+      location.href = ios;
+    } else if (isAndroid && android) {
+      location.href = android;
+    } else {
+      var card = document.getElementById("qr-card");
+      if (card) {
+        card.scrollIntoView({ behavior: "smooth" });
+      }
+    }
+  }
+
+  document.querySelectorAll(".bank-btn").forEach(function(btn){
+    btn.addEventListener("click", function(){ launchApp(this); });
+  });
+
+  var search = document.getElementById("bank-search");
+  if (search) {
+    search.addEventListener("input", function(){
+      var q = this.value.toLowerCase().trim();
+      document.querySelectorAll(".bank-btn").forEach(function(b){
+        var txt = (b.getAttribute("data-app") + " " + b.getAttribute("data-name")).toLowerCase();
+        b.style.display = txt.indexOf(q) !== -1 ? "flex" : "none";
+      });
+    });
+  }
+
+  var autoApp = document.body.getAttribute("data-auto-app");
+  if (autoApp) {
+    var targetBtn = document.querySelector('.bank-btn[data-app="' + autoApp.toLowerCase() + '"]');
+    if (targetBtn) {
+      setTimeout(function(){ launchApp(targetBtn); }, 200);
+    }
+  }
+})();
+</script>
+</body>
+</html>

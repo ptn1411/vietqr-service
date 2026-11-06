@@ -1,0 +1,9 @@
+/target
+/output
+/output_binary
+*.log
+*.sha256
+*.zip
+*.tar.gz
+.DS_Store
+Thumbs.db
