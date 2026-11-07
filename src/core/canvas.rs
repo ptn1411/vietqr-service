@@ -1833,7 +1833,13 @@ pub fn render_sepay_ptn_qr(opts: &QrRenderOptions) -> Result<Vec<u8>> {
         let name_str = opts
             .account_name
             .map(sanitize_vietqr_name)
-            .unwrap_or_else(|| "PHAM THANH NAM".to_string());
+            .unwrap_or_else(|| {
+                if opts.account == "69238686888" {
+                    "PHAM THANH NAM".to_string()
+                } else {
+                    "CHU TAI KHOAN".to_string()
+                }
+            });
         let acc_formatted = format_bank_account_spaced(opts.account, opts.full_acc);
         let amount_str = if opts.amount > 0 {
             format_vnd_amount(opts.amount)

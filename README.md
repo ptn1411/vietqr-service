@@ -202,7 +202,24 @@ Toàn bộ 31 bài test kiểm tra TLV, CRC16, 65+ BIN, khử dấu tiếng Vi�
 ## 📄 Bản Quyền & Tác Giả
 
 Dự án được xây dựng và phát triển bởi **Phạm Thành Nam**.
-Phát hành theo giấy phép MIT.
+Mã nguồn phần mềm được phát hành theo giấy phép **MIT License**.
+
+---
+
+## ⚖️ Tuyên Bố Bản Quyền, Nhãn Hiệu & Miễn Trừ Trách Nhiệm (Legal Disclaimer)
+
+1. **Chuẩn Kỹ Thuật & Quyền Tác Giả Phần Mềm**:
+   - Thuật toán tạo chuỗi thanh toán tuân thủ quy chuẩn kỹ thuật tại **Quyết định số 1928/QĐ-NHNN ngày 05/10/2018** của Thống đốc Ngân hàng Nhà nước Việt Nam và đặc tả mở **EMVCo Merchant-Presented Mode (MPM)**.
+   - Theo Điều 15 khoản 2 Luật Sở hữu trí tuệ Việt Nam, các văn bản quy chuẩn hành chính, nguyên lý, quy trình kỹ thuật không thuộc đối tượng bảo hộ quyền tác giả. Mã nguồn dịch vụ này được lập trình mới 100% bằng ngôn ngữ Rust (Clean-room implementation), hoàn toàn độc lập và không sao chép từ bất kỳ SDK đóng hay dịch vụ nội bộ nào.
+
+2. **Nhãn Hiệu Thương Mại & Nhận Diện Logo**:
+   - **VietQR** và **NAPAS 24/7** là các nhãn hiệu đã đăng ký thuộc quyền sở hữu của **Công ty Cổ phần Thanh toán Quốc gia Việt Nam (NAPAS)**.
+   - Logo, tên gọi và bộ nhận diện thương hiệu của các ngân hàng thương mại (TPBank, Vietcombank, Techcombank, MBBank...) thuộc quyền sở hữu của các ngân hàng tương ứng.
+   - Việc hiển thị huy hiệu, tên ngân hàng và logo VietQR/NAPAS trên mã QR và các ấn phẩm Standee là nhằm mục đích **chỉ dẫn khả năng tương thích thanh toán (Indicative Use / Fair Use)** theo hướng dẫn nhận diện thương hiệu VietQR của NAPAS, phục vụ người dùng quét mã thanh toán chính xác.
+   - Dự án là một tiện ích công nghệ mã nguồn mở độc lập, **KHÔNG PHẢI** là dịch vụ chính thức, không đại diện và không có mối quan hệ liên kết hay ủy quyền tài chính với NAPAS, SePay hay Ngân hàng Nhà nước Việt Nam.
+
+3. **Bảo Vệ Dữ Liệu Cá Nhân (Privacy by Design)**:
+   - Dịch vụ tuân thủ nghiêm ngặt **Luật Bảo vệ dữ liệu cá nhân số 91/2025/QH15** và **Nghị định 356/2025/NĐ-CP**: Toàn bộ quá trình tạo chuỗi EMVCo và render ảnh mã QR được xử lý **100% trong bộ nhớ tạm (In-Memory)**. Hệ thống không sử dụng cơ sở dữ liệu, không ghi nhật ký thông tin nhạy cảm ra ổ đĩa (Zero Disk Logging), và không theo dõi hành vi người dùng (Zero Cookies & Tracking Scripts).
 
 ---
 Nếu dự án giúp ích cho công việc nghiên cứu hoặc phòng thủ của bạn, bạn có thể ủng hộ để duy trì tài liệu, test và các workflow mới. Mọi khoản đóng góp đều hoàn toàn tự nguyện.
