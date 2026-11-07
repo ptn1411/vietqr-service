@@ -14,7 +14,6 @@ use crate::core::png_encoder::{encode_branded_qr_png, encode_rgb_png};
 pub const BRANDING_FONT_BYTES: &[u8] = include_bytes!("../../assets/fonts/Roboto-Bold.ttf");
 pub const PTN_LOGO_BYTES: &[u8] = include_bytes!("../../assets/brand/ptn_logo.png");
 pub const PARTNER_BAR_BYTES: &[u8] = include_bytes!("../../assets/brand/partner_bar_tpb.png");
-pub const VIETQR_CENTER_BYTES: &[u8] = include_bytes!("../../assets/brand/vietqr_center.png");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum QrTemplate {
@@ -1814,14 +1813,21 @@ pub fn render_sepay_ptn_qr(opts: &QrRenderOptions) -> Result<Vec<u8>> {
                 logo_bytes,
             );
         }
-        _ => {
-            blit_image_centered(
+        ref badge_mode => {
+            let badge_lbl = match badge_mode {
+                CenterLogo::TextBadge(txt) => txt.trim(),
+                _ => normalize_bank_code_for_qr(opts.bank_code),
+            };
+            let brand_rgb = qr_center_badge_brand_color(opts.bank_code);
+            draw_rgb_center_logo_badge(
                 &mut rgb_pixels,
                 canvas_w,
                 canvas_h,
                 qr_center_x,
                 qr_center_y,
-                VIETQR_CENTER_BYTES,
+                qr_px,
+                badge_lbl,
+                brand_rgb,
             );
         }
     }
