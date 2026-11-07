@@ -850,6 +850,10 @@
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" x2="22" y1="12" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
           Mở Cổng Thanh Toán Web Hub
         </a>
+        <button type="button" class="btn" id="btnShareZalo" style="grid-column: 1 / -1; background: #0068ff; color: #ffffff; border-color: #0054d1; box-shadow: 0 1px 3px rgba(0, 104, 255, 0.25);">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/></svg>
+          Gửi / Chia Sẻ Mã QR Qua Zalo
+        </button>
       </div>
     </div>
 
@@ -1215,12 +1219,66 @@
   btnCopyMarkdown.addEventListener('click', function() {
     var p = buildParams();
     var imgUrl = window.location.origin + '/img?' + p.queryParams.toString();
-    var payUrl = window.location.origin + '/qr/pay?ba=' + p.acc + '@' + p.bank + '&am=' + p.amount + '&tn=' + encodeURIComponent(p.memo);
+    var payUrl = window.location.origin + '/qr/pay?ba=' + encodeURIComponent(p.acc) + '@' + encodeURIComponent(p.bank) + '&am=' + encodeURIComponent(p.amount) + '&tn=' + encodeURIComponent(p.memo);
     var md = '[![VietQR ' + p.bank + '](' + imgUrl + ')](' + payUrl + ')';
     navigator.clipboard.writeText(md).then(function() {
       showToast('Đã sao chép mã nhúng Markdown!');
     });
   });
+
+  var btnShareZalo = document.getElementById('btnShareZalo');
+  if (btnShareZalo) {
+    btnShareZalo.addEventListener('click', async function() {
+      var p = buildParams();
+      var imgUrl = window.location.origin + '/img?' + p.queryParams.toString();
+      var payUrl = window.location.origin + '/qr/pay?ba=' + encodeURIComponent(p.acc) + '@' + encodeURIComponent(p.bank) + '&am=' + encodeURIComponent(p.amount) + '&tn=' + encodeURIComponent(p.memo);
+
+      var shareLines = [
+        "Chuyển khoản VietQR 24/7:",
+        "• Ngân hàng: " + p.bank,
+        "• STK: " + p.acc,
+        "• Số tiền: " + (Number(p.amount) > 0 ? Number(p.amount).toLocaleString('vi-VN') + " đ" : "Tùy chọn")
+      ];
+      if (p.memo) {
+        shareLines.push("• Nội dung: " + p.memo);
+      }
+      shareLines.push("👉 Bấm link để mở ứng dụng ngân hàng: " + payUrl);
+      var shareText = shareLines.join("\n");
+
+      if (navigator.share) {
+        try {
+          showToast("Đang chuẩn bị ảnh QR...");
+          var res = await fetch(imgUrl);
+          var blob = await res.blob();
+          var file = new File([blob], "vietqr-" + p.acc + ".png", { type: "image/png" });
+
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              title: "Thanh toán VietQR " + p.bank + " " + p.acc,
+              text: shareText,
+              files: [file]
+            });
+            showToast("Đã chia sẻ thành công!");
+            return;
+          }
+        } catch (err) {
+          if (err.name === "AbortError") {
+            return;
+          }
+        }
+      }
+
+      if (navigator.clipboard) {
+        try {
+          await navigator.clipboard.writeText(shareText);
+        } catch (e) {}
+      }
+      showToast("Đã sao chép nội dung! Mở Zalo để dán...");
+      setTimeout(function() {
+        window.open("https://chat.zalo.me/", "_blank");
+      }, 500);
+    });
+  }
 
   // Load 33 bank app buttons from API
   fetch('/api/banks')
@@ -1231,7 +1289,7 @@
       banks.forEach(function(b) {
         var a = document.createElement('a');
         a.className = 'app-pill';
-        a.href = '/qr/pay?app=' + b.app_id + '&ba=' + accInput.value + '@' + bankSelect.value + '&am=' + (amountInput.value || 0) + '&tn=' + encodeURIComponent(memoInput.value);
+        a.href = '/qr/pay?app=' + encodeURIComponent(b.app_id) + '&ba=' + encodeURIComponent(accInput.value) + '@' + encodeURIComponent(bankSelect.value) + '&am=' + encodeURIComponent(amountInput.value || 0) + '&tn=' + encodeURIComponent(memoInput.value);
         a.target = '_blank';
         a.innerHTML = '<span>' + b.app_name + '</span><span class="app-pill-code">' + b.app_id.toUpperCase() + '</span>';
         appScroller.appendChild(a);

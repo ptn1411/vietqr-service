@@ -161,6 +161,16 @@
       background: #e2e8f0;
       border-color: #94a3b8;
     }
+    .btn-zalo {
+      background: #0068ff;
+      border-color: #0054d1;
+      color: #ffffff;
+      box-shadow: 0 1px 3px rgba(0, 104, 255, 0.25);
+    }
+    .btn-zalo:hover {
+      background: #0054d1;
+      color: #ffffff;
+    }
     .tip-box {
       background: #eff6ff;
       border: 1px solid #bfdbfe;
@@ -385,6 +395,10 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
         Sao chép STK
       </button>
+      <button type="button" class="btn btn-zalo" id="btn-share-zalo" style="grid-column: 1 / -1;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/></svg>
+        Gửi / Chia sẻ mã QR sang Zalo
+      </button>
     </div>
 
     <div class="tip-box">
@@ -471,6 +485,66 @@
           showToast("Đã sao chép STK: " + text);
         });
       }
+    });
+  }
+
+  var btnShareZalo = document.getElementById("btn-share-zalo");
+  if (btnShareZalo) {
+    btnShareZalo.addEventListener("click", async function(){
+      var qrImg = document.getElementById("qr-img");
+      var qrUrl = qrImg ? qrImg.src : "{{QR_IMG_URL}}";
+      var bank = "{{BANK}}";
+      var acc = "{{ACCOUNT}}";
+      var amount = "{{AMOUNT}}";
+      var memoPill = document.querySelector(".info-row .mono [data-copy]");
+      var memo = memoPill ? memoPill.getAttribute("data-copy") : "";
+      var currentUrl = window.location.href;
+
+      var shareLines = [
+        "Chuyển khoản VietQR 24/7:",
+        "• Ngân hàng: " + bank,
+        "• STK: " + acc,
+        "• Số tiền: " + amount
+      ];
+      if (memo) {
+        shareLines.push("• Nội dung: " + memo);
+      }
+      shareLines.push("👉 Bấm link để mở ứng dụng ngân hàng: " + currentUrl);
+      var shareText = shareLines.join("\n");
+
+      if (navigator.share && qrUrl) {
+        try {
+          showToast("Đang chuẩn bị ảnh QR...");
+          var res = await fetch(qrUrl);
+          var blob = await res.blob();
+          var file = new File([blob], "vietqr-" + acc + ".png", { type: "image/png" });
+
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              title: "Thanh toán VietQR " + bank + " " + acc,
+              text: shareText,
+              files: [file]
+            });
+            showToast("Đã chia sẻ thành công!");
+            return;
+          }
+        } catch (err) {
+          if (err.name === "AbortError") {
+            return;
+          }
+          console.warn("File share not available or failed:", err);
+        }
+      }
+
+      if (navigator.clipboard) {
+        try {
+          await navigator.clipboard.writeText(shareText);
+        } catch (e) {}
+      }
+      showToast("Đã sao chép nội dung! Mở Zalo để dán...");
+      setTimeout(function(){
+        window.open("https://chat.zalo.me/", "_blank");
+      }, 500);
     });
   }
 
