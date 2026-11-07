@@ -33,6 +33,7 @@ pub struct QrQueryParams {
     pub footer1: Option<String>,
     pub footer2: Option<String>,
     pub badge: Option<String>,
+    pub logo: Option<String>,
     pub scale: Option<usize>,
     pub square: Option<bool>,
 }
@@ -107,8 +108,18 @@ async fn qr_png_get_handler(Query(params): Query<QrQueryParams>) -> Response {
         QrTemplate::from_str_opt(params.template.as_deref())
     };
 
-    let logo = if let Some(ref badge) = params.badge {
-        CenterLogo::TextBadge(badge)
+    let badge_param = params.badge.as_deref().or(params.logo.as_deref());
+    let logo = if let Some(badge) = badge_param {
+        let b = badge.trim();
+        if b.eq_ignore_ascii_case("none")
+            || b.eq_ignore_ascii_case("no")
+            || b.eq_ignore_ascii_case("false")
+            || b == "0"
+        {
+            CenterLogo::None
+        } else {
+            CenterLogo::TextBadge(b)
+        }
     } else {
         CenterLogo::AutoBadge(bank)
     };
@@ -233,7 +244,16 @@ async fn qr_png_post_handler(mut multipart: Multipart) -> Response {
     let logo = if let Some(ref img_bytes) = logo_bytes {
         CenterLogo::ImageLogo(img_bytes)
     } else if let Some(ref b) = badge {
-        CenterLogo::TextBadge(b)
+        let trimmed = b.trim();
+        if trimmed.eq_ignore_ascii_case("none")
+            || trimmed.eq_ignore_ascii_case("no")
+            || trimmed.eq_ignore_ascii_case("false")
+            || trimmed == "0"
+        {
+            CenterLogo::None
+        } else {
+            CenterLogo::TextBadge(trimmed)
+        }
     } else {
         CenterLogo::AutoBadge(norm_bank)
     };

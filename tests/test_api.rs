@@ -320,3 +320,18 @@ async fn test_qr_pay_hub_xss_safety_with_special_chars() {
     // Verify formatted large amount is shown
     assert!(html.contains("10.000.000.000 đ"));
 }
+
+#[tokio::test]
+async fn test_img_endpoint_with_badge_none() {
+    let app = app_router();
+    let uri = "/img?bank=TPB&acc=69238686888&amount=50000&badge=none&template=qronly";
+    let response = app
+        .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let img = image::load_from_memory(&bytes).expect("valid clean QR PNG without logo");
+    assert_eq!(img.width(), img.height());
+}

@@ -1182,6 +1182,8 @@ pub fn render_standee_qr(opts: &QrRenderOptions) -> Result<Vec<u8>> {
     let c_top = qr_center_y - cushion_half_h - 2;
     let c_bottom = qr_center_y + cushion_half_h + 2;
 
+    let has_center_logo = !matches!(opts.logo, CenterLogo::None);
+
     for y in 0..size {
         for x in 0..size {
             let in_finder = (x + 7 >= size || x < 7) && y < 7 || (x < 7 && y + 7 >= size);
@@ -1195,7 +1197,8 @@ pub fn render_standee_qr(opts: &QrRenderOptions) -> Result<Vec<u8>> {
                     for dx in 0..scale {
                         let cur_x = (px + dx) as i32;
                         let cur_y = (py + dy) as i32;
-                        if cur_x >= c_left
+                        if has_center_logo
+                            && cur_x >= c_left
                             && cur_x <= c_right
                             && cur_y >= c_top
                             && cur_y <= c_bottom
@@ -1232,6 +1235,7 @@ pub fn render_standee_qr(opts: &QrRenderOptions) -> Result<Vec<u8>> {
 
     // Draw Center Logo / Badge
     match opts.logo {
+        CenterLogo::None => {} // No center logo / badge!
         CenterLogo::ImageLogo(logo_bytes) => {
             fill_rgb_rounded_rect(
                 &mut rgb_pixels,
@@ -1746,6 +1750,8 @@ pub fn render_sepay_ptn_qr(opts: &QrRenderOptions) -> Result<Vec<u8>> {
     let c_top = qr_center_y - cushion_half_h;
     let c_bottom = qr_center_y + cushion_half_h;
 
+    let has_center_logo = !matches!(opts.logo, CenterLogo::None);
+
     for y in 0..size {
         for x in 0..size {
             let in_finder = (x + 7 >= size || x < 7) && y < 7 || (x < 7 && y + 7 >= size);
@@ -1759,7 +1765,8 @@ pub fn render_sepay_ptn_qr(opts: &QrRenderOptions) -> Result<Vec<u8>> {
                     for dx in 0..scale {
                         let cur_x = (px + dx) as i32;
                         let cur_y = (py + dy) as i32;
-                        if cur_x >= c_left
+                        if has_center_logo
+                            && cur_x >= c_left
                             && cur_x <= c_right
                             && cur_y >= c_top
                             && cur_y <= c_bottom
@@ -1795,6 +1802,7 @@ pub fn render_sepay_ptn_qr(opts: &QrRenderOptions) -> Result<Vec<u8>> {
 
     // 4. Center Logo inside QR
     match opts.logo {
+        CenterLogo::None => {} // No center logo! Clean QR matrix.
         CenterLogo::ImageLogo(logo_bytes) => {
             composite_rgb_image(
                 &mut rgb_pixels,

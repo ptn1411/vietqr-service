@@ -82,3 +82,23 @@ fn test_render_qr_with_custom_image_logo() {
     let img = image::load_from_memory(&png).expect("valid PNG");
     assert!(img.height() > img.width());
 }
+
+#[test]
+fn test_render_qr_with_no_center_logo() {
+    let payload = "00020101021238570010A000000727012700069704230111692386868880208QRIBFTTA53037045405500005802VN62250821UNG HO PHAM THANH NAM6304E6BC";
+    let png = render_custom_vietqr(
+        payload,
+        CenterLogo::None,
+        QrFooterOptions {
+            line1: None,
+            line2: None,
+            is_square: true,
+        },
+        8,
+    )
+    .expect("render QR with CenterLogo::None");
+
+    assert!(png.len() < 8192, "Clean QR without logo must be super lightweight, got {} bytes", png.len());
+    let img = image::load_from_memory(&png).expect("valid PNG");
+    assert_eq!(img.width(), img.height());
+}

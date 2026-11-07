@@ -315,9 +315,12 @@
     }
     .radio-group {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       gap: 8px;
       margin-top: 4px;
+    }
+    @media (max-width: 640px) {
+      .radio-group { grid-template-columns: repeat(2, 1fr); }
     }
     .mode-pill {
       background: var(--input-bg);
@@ -771,7 +774,10 @@
       <label>Logo ở giữa mã QR (Center Badge)</label>
       <div class="radio-group">
         <div class="mode-pill active" data-mode="auto" id="modeAuto">
-          <span>Huy hiệu Ngân Hàng</span>
+          <span>Huy hiệu Bank</span>
+        </div>
+        <div class="mode-pill" data-mode="none" id="modeNone">
+          <span>Không Logo (QR Thuần)</span>
         </div>
         <div class="mode-pill" data-mode="text" id="modeText">
           <span>Chữ Tùy Biến</span>
@@ -918,6 +924,7 @@
   var appScroller = document.getElementById('appScroller');
 
   var modeAuto = document.getElementById('modeAuto');
+  var modeNone = document.getElementById('modeNone');
   var modeText = document.getElementById('modeText');
   var modeImage = document.getElementById('modeImage');
   var textBadgeField = document.getElementById('textBadgeField');
@@ -989,12 +996,14 @@
 
   function setMode(mode) {
     currentMode = mode;
-    [modeAuto, modeText, modeImage].forEach(function(el) { el.classList.remove('active'); });
+    [modeAuto, modeNone, modeText, modeImage].forEach(function(el) { if (el) el.classList.remove('active'); });
     textBadgeField.style.display = 'none';
     imageUploadField.style.display = 'none';
 
     if (mode === 'auto') {
       modeAuto.classList.add('active');
+    } else if (mode === 'none') {
+      modeNone.classList.add('active');
     } else if (mode === 'text') {
       modeText.classList.add('active');
       textBadgeField.style.display = 'flex';
@@ -1006,6 +1015,7 @@
   }
 
   modeAuto.addEventListener('click', function() { setMode('auto'); });
+  modeNone.addEventListener('click', function() { setMode('none'); });
   modeText.addEventListener('click', function() { setMode('text'); });
   modeImage.addEventListener('click', function() { setMode('image'); });
 
@@ -1078,6 +1088,8 @@
 
     if (currentMode === 'text') {
       params.append('badge', badgeText.value || 'PAY');
+    } else if (currentMode === 'none') {
+      params.append('badge', 'none');
     }
     return {
       bank: bank,
