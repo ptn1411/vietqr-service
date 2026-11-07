@@ -13,7 +13,6 @@ use crate::core::png_encoder::{encode_branded_qr_png, encode_rgb_png};
 
 pub const BRANDING_FONT_BYTES: &[u8] = include_bytes!("../../assets/fonts/Roboto-Bold.ttf");
 pub const PTN_LOGO_BYTES: &[u8] = include_bytes!("../../assets/brand/ptn_logo.png");
-pub const PARTNER_BAR_BYTES: &[u8] = include_bytes!("../../assets/brand/partner_bar_tpb.png");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum QrTemplate {
@@ -1832,15 +1831,25 @@ pub fn render_sepay_ptn_qr(opts: &QrRenderOptions) -> Result<Vec<u8>> {
         }
     }
 
-    // 5. Draw Partner Trust Bar (napas 24/7 | TPBank | VIETQR)
-    blit_image_centered(
-        &mut rgb_pixels,
-        canvas_w,
-        canvas_h,
-        (canvas_w / 2) as i32,
-        472,
-        PARTNER_BAR_BYTES,
-    );
+    // 5. Trust Subtitle & Divider
+    if let Ok(font) = FontRef::try_from_slice(BRANDING_FONT_BYTES) {
+        render_rgb_text_line(
+            &font,
+            &mut rgb_pixels,
+            canvas_w,
+            canvas_h,
+            472.0,
+            PxScale::from(12.5),
+            "CHUYEN KHOAN NHANH 24/7",
+            (148, 163, 184), // Slate 400
+        );
+    }
+    for x in 85..455 {
+        let idx = (490 * canvas_w + x) * 3;
+        rgb_pixels[idx] = 241;
+        rgb_pixels[idx + 1] = 245;
+        rgb_pixels[idx + 2] = 249; // Slate 100
+    }
 
     // 6. Beneficiary Information block
     if let Ok(font) = FontRef::try_from_slice(BRANDING_FONT_BYTES) {
