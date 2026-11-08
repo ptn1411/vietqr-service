@@ -883,6 +883,24 @@
           <button type="button" class="chip-btn color-preset-btn" data-fg="#451a03" data-bg="#fefce8">Cổ Điển Sepia</button>
         </div>
       </div>
+
+      <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed #cbd5e1;">
+        <label style="margin-bottom: 6px;">Bộ nhớ mẫu Halftone JSON (Precomputed Preset &bull; Không cần upload lại ảnh)</label>
+        <div class="action-grid" style="margin-top: 6px;">
+          <button type="button" class="btn btn-secondary" id="btnExportPresetJson" style="padding: 9px 12px; font-size: 12px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+            Xuất File JSON Mẫu
+          </button>
+          <button type="button" class="btn btn-secondary" id="btnImportPresetJson" style="padding: 9px 12px; font-size: 12px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+            Nạp File JSON Mẫu
+          </button>
+          <input type="file" id="presetJsonFileInput" accept=".json,application/json" style="display: none;">
+        </div>
+        <div id="presetStatusBox" style="display: none; margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: #ecfdf5; border: 1px solid #a7f3d0; font-size: 11px; color: #065f46; font-weight: 600;">
+          Đang dùng Preset biên dịch sẵn: <code id="presetIdLabel" style="font-weight: 700;"></code> &bull; Đổi số tiền/nội dung siêu tốc qua GET URL
+        </div>
+      </div>
     </div>
 
     <div class="form-group" style="margin-top: 16px;">
@@ -1030,6 +1048,11 @@
   var customColorControls = document.getElementById('customColorControls');
   var fgColorInput = document.getElementById('fgColorInput');
   var bgColorInput = document.getElementById('bgColorInput');
+  var btnExportPresetJson = document.getElementById('btnExportPresetJson');
+  var btnImportPresetJson = document.getElementById('btnImportPresetJson');
+  var presetJsonFileInput = document.getElementById('presetJsonFileInput');
+  var presetStatusBox = document.getElementById('presetStatusBox');
+  var presetIdLabel = document.getElementById('presetIdLabel');
 
   var currentPurpose = 'online';
   var currentTemplate = 'ptn';
@@ -1038,6 +1061,7 @@
   var currentColorMode = 'custom';
   var uploadedLogoFile = null;
   var uploadedHalftoneFile = null;
+  var activePresetId = null;
   var debounceTimer = null;
   var currentBlobUrl = null;
   var toastTimer = null;
@@ -1141,13 +1165,53 @@
     }
   });
 
+  function compileHalftonePresetOnServer(downloadFile) {
+    var fd = new FormData();
+    fd.append('dither', currentDither);
+    fd.append('contrast', contrastRange.value);
+    fd.append('brightness', brightnessRange.value);
+    fd.append('colormode', currentColorMode);
+    fd.append('fg', fgColorInput.value);
+    fd.append('bg', bgColorInput.value);
+    if (uploadedHalftoneFile) {
+      fd.append('halftone_img', uploadedHalftoneFile);
+    }
+    fetch('/api/halftone/preset', { method: 'POST', body: fd })
+      .then(function(r) {
+        if (!r.ok) throw new Error('Preset error');
+        return r.json();
+      })
+      .then(function(presetObj) {
+        activePresetId = presetObj.preset_id;
+        presetIdLabel.textContent = activePresetId;
+        presetStatusBox.style.display = 'block';
+        triggerRefresh();
+        if (downloadFile) {
+          var jsonStr = JSON.stringify(presetObj, null, 2);
+          var blob = new Blob([jsonStr], { type: 'application/json' });
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = 'halftone-' + activePresetId + '.json';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          showToast('Đã xuất file JSON mẫu (' + (jsonStr.length / 1024).toFixed(1) + ' KB)!');
+        }
+      })
+      .catch(function() {
+        triggerRefresh();
+      });
+  }
+
   halftoneDropzone.addEventListener('click', function() { halftoneFileInput.click(); });
   halftoneFileInput.addEventListener('change', function() {
     if (this.files && this.files[0]) {
       uploadedHalftoneFile = this.files[0];
       halftoneDropzoneText.textContent = 'Ảnh nền Halftone: ' + uploadedHalftoneFile.name;
       halftoneDropzone.classList.add('has-file');
-      triggerRefresh();
+      compileHalftonePresetOnServer(false);
     }
   });
 
@@ -1156,18 +1220,90 @@
       currentDither = this.getAttribute('data-dither');
       ditherPills.forEach(function(p) { p.classList.remove('active'); });
       this.classList.add('active');
-      triggerRefresh();
+      if (uploadedHalftoneFile) {
+        compileHalftonePresetOnServer(false);
+      } else {
+        activePresetId = null;
+        presetStatusBox.style.display = 'none';
+        triggerRefresh();
+      }
     });
   });
 
   contrastRange.addEventListener('input', function() {
     contrastVal.textContent = Number(this.value).toFixed(2);
-    triggerRefresh();
+    if (uploadedHalftoneFile) {
+      compileHalftonePresetOnServer(false);
+    } else {
+      activePresetId = null;
+      presetStatusBox.style.display = 'none';
+      triggerRefresh();
+    }
   });
 
   brightnessRange.addEventListener('input', function() {
     brightnessVal.textContent = Number(this.value).toFixed(2);
-    triggerRefresh();
+    if (uploadedHalftoneFile) {
+      compileHalftonePresetOnServer(false);
+    } else {
+      activePresetId = null;
+      presetStatusBox.style.display = 'none';
+      triggerRefresh();
+    }
+  });
+
+  btnExportPresetJson.addEventListener('click', function() {
+    compileHalftonePresetOnServer(true);
+  });
+
+  btnImportPresetJson.addEventListener('click', function() {
+    presetJsonFileInput.click();
+  });
+
+  presetJsonFileInput.addEventListener('change', function() {
+    if (!this.files || !this.files[0]) return;
+    var file = this.files[0];
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      try {
+        var parsed = JSON.parse(ev.target.result);
+        fetch('/api/halftone/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(parsed)
+        })
+          .then(function(r) {
+            if (!r.ok) throw new Error('Import error');
+            return r.json();
+          })
+          .then(function(res) {
+            uploadedHalftoneFile = null;
+            activePresetId = res.preset_id;
+            presetIdLabel.textContent = activePresetId;
+            presetStatusBox.style.display = 'block';
+            halftoneDropzoneText.textContent = 'Đã nạp JSON Mẫu: ' + file.name + ' (' + activePresetId + ')';
+            halftoneDropzone.classList.add('has-file');
+            if (parsed.fg) fgColorInput.value = parsed.fg;
+            if (parsed.bg) bgColorInput.value = parsed.bg;
+            if (parsed.colormode) {
+              currentColorMode = parsed.colormode;
+              colormodePills.forEach(function(p) {
+                if (p.getAttribute('data-colormode') === currentColorMode) p.classList.add('active');
+                else p.classList.remove('active');
+              });
+              customColorControls.style.display = currentColorMode === 'custom' ? 'block' : 'none';
+            }
+            showToast('Đã nạp JSON mẫu thành công (' + activePresetId + ')!');
+            triggerRefresh();
+          })
+          .catch(function() {
+            showToast('Lỗi: File JSON mẫu không hợp lệ!');
+          });
+      } catch (e) {
+        showToast('Lỗi: Không thể đọc định dạng JSON!');
+      }
+    };
+    reader.readAsText(file);
   });
 
   colormodePills.forEach(function(pill) {
@@ -1250,6 +1386,9 @@
       params.append('colormode', currentColorMode);
       params.append('fg', fgColorInput.value);
       params.append('bg', bgColorInput.value);
+      if (activePresetId) {
+        params.append('preset', activePresetId);
+      }
     } else if (currentMode === 'text') {
       params.append('badge', badgeText.value || 'PAY');
     } else if (currentMode === 'none') {
@@ -1293,7 +1432,7 @@
     updateLinks();
     var p = buildParams();
 
-    var usePostUpload = (currentTemplate === 'halftone' && uploadedHalftoneFile) ||
+    var usePostUpload = (currentTemplate === 'halftone' && uploadedHalftoneFile && !activePresetId) ||
                         (currentTemplate !== 'halftone' && currentMode === 'image' && uploadedLogoFile);
 
     if (usePostUpload) {

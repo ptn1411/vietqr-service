@@ -149,3 +149,47 @@ fn test_render_halftone_vietqr_with_dither_methods() {
         assert_eq!(img.width(), img.height());
     }
 }
+
+#[test]
+fn test_halftone_precomputed_json_preset_roundtrip_and_fast_render() {
+    use vietqr_service::core::canvas::{QrRenderOptions, QrTemplate};
+    use vietqr_service::core::halftone::{
+        HalftoneParams, compile_and_register_preset_json, create_and_register_preset,
+        render_halftone_with_preset,
+    };
+
+    let payload = "00020101021238570010A000000727012700069704230111692386868880208QRIBFTTA53037045405500005802VN62250821UNG HO PHAM THANH NAM6304E6BC";
+    let custom_bg = generate_dummy_logo_png();
+
+    let preset_json =
+        create_and_register_preset(Some(&custom_bg), HalftoneParams::default(), true)
+            .expect("should export halftone preset JSON");
+    assert!(preset_json.preset_id.starts_with("ht_"));
+    assert_eq!(preset_json.grid_w, 135);
+
+    let serialized = serde_json::to_string(&preset_json).expect("serialize preset json");
+    let parsed: vietqr_service::core::halftone::HalftonePresetJson =
+        serde_json::from_str(&serialized).expect("deserialize preset json");
+    let compiled =
+        compile_and_register_preset_json(&parsed).expect("compile and register preset");
+
+    let opts = QrRenderOptions {
+        payload,
+        logo: CenterLogo::None,
+        template: QrTemplate::Halftone,
+        scale: 8,
+        show_info: true,
+        full_acc: true,
+        bank_code: "TPB",
+        account: "69238686888",
+        account_name: Some("PHAM THANH NAM"),
+        amount: 250000,
+        memo: Some("FAST PRESET RENDER"),
+        footer: QrFooterOptions::default(),
+    };
+
+    let png = render_halftone_with_preset(&opts, &compiled, None)
+        .expect("fast render from precomputed preset");
+    let img = image::load_from_memory(&png).expect("valid PNG from preset");
+    assert!(img.height() > img.width());
+}

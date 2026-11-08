@@ -350,3 +350,40 @@ async fn test_img_endpoint_halftone_template() {
     let img = image::load_from_memory(&bytes).expect("valid Halftone QR PNG");
     assert!(img.height() > img.width());
 }
+
+#[tokio::test]
+async fn test_halftone_preset_import_and_get_render() {
+    use vietqr_service::core::halftone::{HalftoneParams, create_and_register_preset};
+
+    let preset_json =
+        create_and_register_preset(None, HalftoneParams::default(), false).unwrap();
+    let body_json = serde_json::to_vec(&preset_json).unwrap();
+
+    let app = app_router();
+    let import_res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/halftone/import")
+                .header("content-type", "application/json")
+                .body(Body::from(body_json))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(import_res.status(), StatusCode::OK);
+
+    let uri = format!(
+        "/img?bank=TPB&acc=69238686888&amount=99000&template=halftone&preset={}",
+        preset_json.preset_id
+    );
+    let get_res = app
+        .oneshot(Request::builder().uri(&uri).body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(get_res.status(), StatusCode::OK);
+    let bytes = to_bytes(get_res.into_body(), usize::MAX).await.unwrap();
+    let img = image::load_from_memory(&bytes).expect("valid PNG rendered from preset ID");
+    assert!(img.height() > img.width());
+}

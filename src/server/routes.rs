@@ -1,7 +1,7 @@
 use axum::extract::{Multipart, Query};
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::response::{Html, IntoResponse, Response};
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 
@@ -16,7 +16,9 @@ use crate::core::emvco::{
     sanitize_vietqr_memo, sanitize_vietqr_name,
 };
 use crate::core::halftone::{
-    DitherMethod, HalftoneColorMode, HalftoneParams, parse_hex_rgb, render_halftone_vietqr,
+    DitherMethod, HalftoneColorMode, HalftoneParams, HalftonePresetJson,
+    compile_and_register_preset_json, create_and_register_preset, get_compiled_preset,
+    parse_hex_rgb, render_halftone_vietqr, render_halftone_with_preset,
 };
 use crate::server::web_hub::render_interactive_bank_pay_hub_html;
 use crate::ui::STUDIO_HTML;
@@ -46,6 +48,7 @@ pub struct QrQueryParams {
     pub fg: Option<String>,
     pub color: Option<String>,
     pub bg: Option<String>,
+    pub preset: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -76,6 +79,8 @@ pub fn app_router() -> Router {
         .route("/api/qr.png", get(qr_png_get_handler).post(qr_png_post_handler))
         .route("/qr.png", get(qr_png_get_handler))
         .route("/img", get(qr_png_get_handler).post(qr_png_post_handler))
+        .route("/api/halftone/preset", post(halftone_export_preset_handler))
+        .route("/api/halftone/import", post(halftone_import_preset_handler))
         .route("/api/banks", get(banks_list_handler))
         .route("/api/pay", get(pay_api_handler))
         .route("/qr/pay", get(pay_hub_html_handler))
@@ -157,6 +162,8 @@ async fn qr_png_get_handler(Query(params): Query<QrQueryParams>) -> Response {
 
     let render_result = if template == QrTemplate::Halftone {
         let fg_raw = params.fg.as_deref().or(params.color.as_deref());
+        let has_color_override =
+            params.colormode.is_some() || fg_raw.is_some() || params.bg.is_some();
         let ht = HalftoneParams {
             dither: DitherMethod::from_str_opt(params.dither.as_deref()),
             contrast: params.contrast.unwrap_or(1.25),
@@ -171,7 +178,16 @@ async fn qr_png_get_handler(Query(params): Query<QrQueryParams>) -> Response {
                 .and_then(parse_hex_rgb)
                 .unwrap_or((255, 255, 255)),
         };
-        render_halftone_vietqr(&render_opts, ht)
+        if let Some(ref pid) = params.preset {
+            if let Some(compiled) = get_compiled_preset(pid) {
+                let override_ht = if has_color_override { Some(ht) } else { None };
+                render_halftone_with_preset(&render_opts, &compiled, override_ht)
+            } else {
+                render_halftone_vietqr(&render_opts, ht)
+            }
+        } else {
+            render_halftone_vietqr(&render_opts, ht)
+        }
     } else {
         render_vietqr_with_options(render_opts)
     };
@@ -221,6 +237,8 @@ async fn qr_png_post_handler(mut multipart: Multipart) -> Response {
     let mut colormode_str: Option<String> = None;
     let mut fg_str: Option<String> = None;
     let mut bg_str: Option<String> = None;
+    let mut preset_id_str: Option<String> = None;
+    let mut preset_json_str: Option<String> = None;
     let mut logo_bytes: Option<Vec<u8>> = None;
 
     while let Ok(Some(field)) = multipart.next_field().await {
@@ -253,6 +271,8 @@ async fn qr_png_post_handler(mut multipart: Multipart) -> Response {
                 "colormode" => colormode_str = Some(text),
                 "fg" | "color" => fg_str = Some(text),
                 "bg" => bg_str = Some(text),
+                "preset" => preset_id_str = Some(text),
+                "preset_json" => preset_json_str = Some(text),
                 _ => {}
             }
         }
@@ -323,6 +343,8 @@ async fn qr_png_post_handler(mut multipart: Multipart) -> Response {
     };
 
     let render_result = if template == QrTemplate::Halftone {
+        let has_color_override =
+            colormode_str.is_some() || fg_str.is_some() || bg_str.is_some();
         let ht = HalftoneParams {
             dither: DitherMethod::from_str_opt(dither_str.as_deref()),
             contrast,
@@ -339,7 +361,23 @@ async fn qr_png_post_handler(mut multipart: Multipart) -> Response {
                 .and_then(parse_hex_rgb)
                 .unwrap_or((255, 255, 255)),
         };
-        render_halftone_vietqr(&render_opts, ht)
+
+        let compiled_preset = if let Some(ref json_raw) = preset_json_str {
+            serde_json::from_str::<HalftonePresetJson>(json_raw)
+                .ok()
+                .and_then(|parsed| compile_and_register_preset_json(&parsed).ok())
+        } else if let Some(ref pid) = preset_id_str {
+            get_compiled_preset(pid)
+        } else {
+            None
+        };
+
+        if let Some(compiled) = compiled_preset {
+            let override_ht = if has_color_override { Some(ht) } else { None };
+            render_halftone_with_preset(&render_opts, &compiled, override_ht)
+        } else {
+            render_halftone_vietqr(&render_opts, ht)
+        }
     } else {
         render_vietqr_with_options(render_opts)
     };
@@ -447,4 +485,82 @@ async fn pay_hub_html_handler(Query(params): Query<PayQueryParams>) -> Html<Stri
         params.app.as_deref(),
     );
     Html(html)
+}
+
+async fn halftone_export_preset_handler(mut multipart: Multipart) -> Response {
+    let mut dither_str: Option<String> = None;
+    let mut contrast: f32 = 1.25;
+    let mut brightness: f32 = 0.0;
+    let mut colormode_str: Option<String> = None;
+    let mut fg_str: Option<String> = None;
+    let mut bg_str: Option<String> = None;
+    let mut img_bytes: Option<Vec<u8>> = None;
+
+    while let Ok(Some(field)) = multipart.next_field().await {
+        let field_name = field.name().unwrap_or_default().to_string();
+        if field_name == "logo" || field_name == "halftone_img" {
+            if let Ok(bytes) = field.bytes().await {
+                if !bytes.is_empty() {
+                    img_bytes = Some(bytes.to_vec());
+                }
+            }
+        } else if let Ok(text) = field.text().await {
+            match field_name.as_str() {
+                "dither" => dither_str = Some(text),
+                "contrast" => contrast = text.parse().unwrap_or(1.25),
+                "brightness" => brightness = text.parse().unwrap_or(0.0),
+                "colormode" => colormode_str = Some(text),
+                "fg" | "color" => fg_str = Some(text),
+                "bg" => bg_str = Some(text),
+                _ => {}
+            }
+        }
+    }
+
+    let ht = HalftoneParams {
+        dither: DitherMethod::from_str_opt(dither_str.as_deref()),
+        contrast,
+        brightness,
+        color_mode: HalftoneColorMode::from_str_opt(
+            colormode_str.as_deref().or(fg_str.as_deref()),
+        ),
+        fg_color: fg_str
+            .as_deref()
+            .and_then(parse_hex_rgb)
+            .unwrap_or((15, 23, 42)),
+        bg_color: bg_str
+            .as_deref()
+            .and_then(parse_hex_rgb)
+            .unwrap_or((255, 255, 255)),
+    };
+
+    match create_and_register_preset(img_bytes.as_deref(), ht, true) {
+        Ok(preset_json) => (StatusCode::OK, Json(preset_json)).into_response(),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            format!("Failed to export Halftone preset: {e}"),
+        )
+            .into_response(),
+    }
+}
+
+async fn halftone_import_preset_handler(
+    Json(preset_json): Json<HalftonePresetJson>,
+) -> Response {
+    match compile_and_register_preset_json(&preset_json) {
+        Ok(compiled) => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "status": "ok",
+                "preset_id": compiled.preset_id,
+                "grid_w": compiled.grid_w,
+            })),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            format!("Failed to import Halftone preset JSON: {e}"),
+        )
+            .into_response(),
+    }
 }
