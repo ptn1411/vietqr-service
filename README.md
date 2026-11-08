@@ -6,9 +6,29 @@
   <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-1.75%2B-ea580c.svg" alt="Rust: 1.75+"></a>
 </p>
 
-Dịch vụ độc lập hiệu năng cao viết bằng **Rust**, chuyên tạo mã QR thanh toán chuẩn **VietQR (NAPAS247)** và tạo liên kết mở trực tiếp **33+ ứng dụng ngân hàng Việt Nam (Deeplink)**.
+Dịch vụ độc lập hiệu năng cao viết bằng **Rust**, chuyên tạo mã QR thanh toán chuẩn **VietQR (NAPAS247)**, hỗ trợ **Halftone Art QR (chèn ảnh chân dung/logo vào hạt sub-pixel $3 \times 3$)**, **Precomputed JSON Preset siêu tốc** và tạo liên kết mở trực tiếp **33+ ứng dụng ngân hàng Việt Nam (Deeplink)**.
 
-Hỗ trợ **tùy biến 2 dòng chữ chân trang**, **chèn ảnh logo tùy chỉnh ở giữa mã QR**, các mẫu **SePay / PTN Standee Full Color**, xuất file PNG siêu nhẹ (~4-6 KB) và tích hợp sẵn **Web Studio** trực quan nhúng trực tiếp trong file binary duy nhất.
+Hỗ trợ **tùy biến 2 dòng chữ chân trang**, **chèn ảnh logo tùy chỉnh ở giữa mã QR** hoặc **chế độ Không Logo (`badge=none`)**, các mẫu **SePay / PTN Standee Full Color**, **Halftone Art QR đa sắc**, xuất file PNG siêu nhẹ (~1.2–6 KB) và tích hợp sẵn **Web Studio** trực quan nhúng trực tiếp trong file binary duy nhất.
+
+---
+
+## 🆕 Có Gì Mới Trong Phiên Bản v0.2.0 (Release Notes)
+
+- **🎨 Module Halftone Sub-pixel QR độc lập (`src/core/halftone.rs` & `template=halftone`)**:
+  - Chia mỗi module QR thành lưới $3 \times 3$ sub-pixels: tâm $1 \times 1$ giữ nguyên bit dữ liệu chuẩn EMVCo VietQR (`EcLevel::H`), $8$ hạt xung quanh hiển thị điểm ảnh nghệ thuật.
+  - Bảo vệ tuyệt đối $100\%$ 3 góc định vị Finder Patterns ($8 \times 8$), Dark Module và Alignment Patterns ($5 \times 5$) với **Zero Heap Allocation** trên vòng lặp vẽ.
+  - Hỗ trợ 4 thuật toán phân tán hạt (`DitherMethod`): **Floyd-Steinberg** (serpentine), **Atkinson**, **Bayer $4 \times 4$**, và **Threshold**, kèm chỉnh `contrast` & `brightness`.
+- **🌈 Bộ Cấu Hình Màu Halftone (`HalftoneColorMode`)**:
+  - `colormode=custom`: Tùy chọn màu hạt QR (`fg`) và màu nền giấy (`bg`) kèm bộ giới hạn độ chói tự động (`clamp_dark_rgb`) đảm bảo camera ngân hàng quét nhạy 100%.
+  - `colormode=bank`: Tự động lấy màu thương hiệu của ngân hàng thụ hưởng (TPBank Tím, VCB Lục, TCB Đỏ, MB/ACB Xanh Navy...).
+  - `colormode=photo`: Giữ nguyên sắc độ màu RGB của bức ảnh gốc trên từng hạt sub-pixel tối.
+- **⚡ Bộ Nhớ Mẫu Halftone JSON Biên Dịch Sẵn (`Precomputed JSON Preset`) & Phân Quyền Admin**:
+  - `POST /api/halftone/preset`: Biên dịch ảnh nền một lần thành gói JSON siêu nhẹ (`~2–4 KB`, nén Zlib bitpack) kèm mã `preset_id` lưu trên RAM server $\rightarrow$ các lần gọi sau chỉ cần gọi `GET /img?template=halftone&preset=<preset_id>` (`< 0.6 ms`, nhanh gấp 30 lần, không cần upload lại ảnh).
+  - `POST /api/admin/login` & `POST /api/halftone/import`: Bảo vệ tính năng nạp file JSON mẫu lên server bằng xác thực tài khoản **Admin** (`ADMIN_USER` / `ADMIN_PASSWORD`).
+- **🧼 Chế Độ QR Thuần Không Logo (`badge=none` / `CenterLogo::None`)**:
+  - Cho phép tắt hoàn toàn logo/huy hiệu ở tâm trên mọi mẫu QR, giảm dung lượng ảnh `qronly` xuống chỉ còn **`~1.16 KB`** (`1,191 bytes`).
+- **⚖️ Tuân Thủ Pháp Lý & Quyền Riêng Tư (`VN Law Check`)**:
+  - Loại bỏ hoàn toàn các tài sản nhãn hiệu tĩnh của bên thứ ba, bổ sung tuyên bố miễn trừ nhãn hiệu và cam kết Zero Data Storage theo Luật Bảo vệ dữ liệu cá nhân 91/2025/QH15 & Nghị định 356/2025/NĐ-CP.
 
 ---
 
@@ -140,7 +160,12 @@ Tạo ảnh QR tương thích hoàn toàn với chuẩn gọi ảnh của SePay.
 | :--- | :--- | :--- |
 | `bank` | string | Mã ngân hàng thụ hưởng (VD: `TPB`, `VCB`, `MB`, `TCB`...) |
 | `acc` | string | Số tài khoản thụ hưởng |
-| `template` | string | Mẫu giao diện: `ptn`, `sepay`, `standee`, `qronly`, `compact` |
+| `template` | string | Mẫu giao diện: `ptn`, `sepay`, `standee`, `qronly`, `compact`, `halftone` |
+| `badge` | string | Huy hiệu tâm: mã chữ tùy chọn, hoặc `none` để tắt hoàn toàn logo ở giữa |
+| `dither` | string | *(Riêng `halftone`)* Thuật toán hạt: `floyd` (mặc định), `atkinson`, `bayer`, `threshold` |
+| `colormode` | string | *(Riêng `halftone`)* Chế độ màu: `custom`, `bank` (theo màu ngân hàng), `photo` (đa sắc theo ảnh) |
+| `fg` / `bg` | string | *(Riêng `halftone`)* Mã màu Hex cho hạt QR và nền giấy (VD: `fg=4c1d95&bg=faf5ff`) |
+| `preset` | string | *(Riêng `halftone`)* Mã `preset_id` đã biên dịch sẵn (VD: `ht_8f4a2c91b03e`) để render siêu tốc |
 | `amount` | integer | Số tiền (VNĐ). Nếu bỏ trống hoặc = 0, khách tự nhập khi quét |
 | `des` | string | Nội dung chuyển khoản (tự chuẩn hóa an toàn) |
 | `name` | string | Tên chủ tài khoản |
@@ -189,13 +214,20 @@ Trang thanh toán tương tác dành cho thiết bị di động (Mobile Web Hub
 
 ---
 
+### 6. `POST /api/halftone/preset` & `POST /api/halftone/import` (Halftone JSON Preset & Admin Auth)
+- **`POST /api/halftone/preset`** *(Multipart Form Data)*: Nhận file ảnh `halftone_img` cùng các tham số `dither`, `contrast`, `brightness`, `colormode`, `fg`, `bg` $\rightarrow$ trả về gói JSON mẫu đã nén bitpack (`HalftonePresetJson`, `~3 KB`) và đăng ký `preset_id` trên RAM.
+- **`POST /api/admin/login`**: Xác thực tài khoản Admin (`ADMIN_USER` mặc định `admin`, `ADMIN_PASSWORD` mặc định `ptn1411@admin`), trả về Bearer token.
+- **`POST /api/halftone/import`** *(Yêu cầu Header `Authorization: Bearer <admin_token>`)*: Nạp file JSON mẫu lên bộ nhớ đệm của server để sử dụng qua `GET /img?template=halftone&preset=<preset_id>`.
+
+---
+
 ## 🧪 Kiểm Thử (Unit & Integration Tests)
 
 Chạy bộ kiểm thử toàn diện:
 ```bash
 cargo test
 ```
-Toàn bộ 31 bài test kiểm tra TLV, CRC16, 65+ BIN, khử dấu tiếng Việt, nén PNG, Deeplink 33+ ngân hàng, số tiền lớn và toàn bộ API endpoint.
+Toàn bộ **37 bài test** kiểm tra TLV, CRC16, 65+ BIN, khử dấu tiếng Việt, nén PNG, chế độ `badge=none`, Halftone 4 chế độ Dither & 3 chế độ màu, Precomputed JSON Preset, phân quyền Admin (`401 Unauthorized` / `200 OK`), Deeplink 33+ ngân hàng, số tiền lớn và toàn bộ API endpoint.
 
 ---
 
