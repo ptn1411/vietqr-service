@@ -6,8 +6,8 @@ use qrcode::{Color, EcLevel, QrCode};
 
 use crate::core::canvas::{BRANDING_FONT_BYTES, CenterLogo, PTN_LOGO_BYTES, QrRenderOptions};
 use crate::core::emvco::{
-    bank_display_name, format_bank_account_spaced, format_vnd_amount, sanitize_vietqr_memo,
-    sanitize_vietqr_name, strip_vietnamese_accents,
+    bank_display_name, format_bank_account_spaced, format_vnd_amount, qr_center_badge_brand_color,
+    sanitize_vietqr_memo, sanitize_vietqr_name, strip_vietnamese_accents,
 };
 use crate::core::png_encoder::encode_rgb_png;
 
@@ -34,11 +34,71 @@ impl DitherMethod {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum HalftoneColorMode {
+    #[default]
+    Custom,
+    BankBrand,
+    PhotoRgb,
+}
+
+impl HalftoneColorMode {
+    pub fn from_str_opt(s: Option<&str>) -> Self {
+        match s.map(|v| v.trim().to_ascii_lowercase()).as_deref() {
+            Some("bank") | Some("brand") | Some("auto") => HalftoneColorMode::BankBrand,
+            Some("photo") | Some("image") | Some("rgb") | Some("multicolor") => {
+                HalftoneColorMode::PhotoRgb
+            }
+            _ => HalftoneColorMode::Custom,
+        }
+    }
+}
+
+/// Parses a `#RRGGBB`, `RRGGBB`, or `#RGB` hex color string into `(r, g, b)`.
+pub fn parse_hex_rgb(s: &str) -> Option<(u8, u8, u8)> {
+    let clean = s.trim().trim_start_matches('#');
+    if clean.len() == 6 {
+        let r = u8::from_str_radix(&clean[0..2], 16).ok()?;
+        let g = u8::from_str_radix(&clean[2..4], 16).ok()?;
+        let b = u8::from_str_radix(&clean[4..6], 16).ok()?;
+        Some((r, g, b))
+    } else if clean.len() == 3 {
+        let r = u8::from_str_radix(&clean[0..1], 16).ok()? * 17;
+        let g = u8::from_str_radix(&clean[1..2], 16).ok()? * 17;
+        let b = u8::from_str_radix(&clean[2..3], 16).ok()? * 17;
+        Some((r, g, b))
+    } else {
+        None
+    }
+}
+
+/// Clamps a foreground RGB color so its perceptual luminance stays dark enough (`Y <= 125`)
+/// for 100% reliable banking camera QR decoding while preserving hue and saturation.
+#[inline]
+pub fn clamp_dark_rgb(rgb: (u8, u8, u8)) -> (u8, u8, u8) {
+    let (r, g, b) = (rgb.0 as f32, rgb.1 as f32, rgb.2 as f32);
+    let luma = 0.299 * r + 0.587 * g + 0.114 * b;
+    let max_luma = 120.0f32;
+    if luma > max_luma && luma > 1.0 {
+        let factor = max_luma / luma;
+        (
+            (r * factor).round() as u8,
+            (g * factor).round() as u8,
+            (b * factor).round() as u8,
+        )
+    } else {
+        rgb
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct HalftoneParams {
     pub dither: DitherMethod,
     pub contrast: f32,
     pub brightness: f32,
+    pub color_mode: HalftoneColorMode,
+    pub fg_color: (u8, u8, u8),
+    pub bg_color: (u8, u8, u8),
 }
 
 impl Default for HalftoneParams {
@@ -47,6 +107,9 @@ impl Default for HalftoneParams {
             dither: DitherMethod::FloydSteinberg,
             contrast: 1.25,
             brightness: 0.0,
+            color_mode: HalftoneColorMode::Custom,
+            fg_color: (15, 23, 42),
+            bg_color: (255, 255, 255),
         }
     }
 }
@@ -128,8 +191,11 @@ fn build_default_halftone_artwork(target_px: u32) -> DynamicImage {
             let dy = y as f32 - center;
             let dist = (dx * dx + dy * dy).sqrt() / max_r;
             let ring = ((dist * std::f32::consts::PI * 6.0).cos() * 0.18) + (1.0 - dist * 0.65);
-            let val = (ring.clamp(0.12, 0.92) * 255.0).round() as u8;
-            img.put_pixel(x, y, Rgba([val, val, val, 255]));
+            let val = ring.clamp(0.12, 0.92);
+            let r = (val * 225.0).round() as u8;
+            let g = ((val * 245.0).min(255.0)).round() as u8;
+            let b = ((val * 255.0).min(255.0)).round() as u8;
+            img.put_pixel(x, y, Rgba([r, g, b, 255]));
         }
     }
 
@@ -145,15 +211,40 @@ fn build_default_halftone_artwork(target_px: u32) -> DynamicImage {
             let alpha = ch[3] as f32 / 255.0;
             if alpha > 0.05 {
                 let dst = img.get_pixel_mut(ox + lx, oy + ly);
-                let bg = dst.0[0] as f32;
-                let fg = 0.299 * ch[0] as f32 + 0.587 * ch[1] as f32 + 0.114 * ch[2] as f32;
-                let blended = (bg * (1.0 - alpha) + fg * alpha).round() as u8;
-                *dst = Rgba([blended, blended, blended, 255]);
+                let r = (dst.0[0] as f32 * (1.0 - alpha) + ch[0] as f32 * alpha).round() as u8;
+                let g = (dst.0[1] as f32 * (1.0 - alpha) + ch[1] as f32 * alpha).round() as u8;
+                let b = (dst.0[2] as f32 * (1.0 - alpha) + ch[2] as f32 * alpha).round() as u8;
+                *dst = Rgba([r, g, b, 255]);
             }
         }
     }
 
     DynamicImage::ImageRgba8(img)
+}
+
+/// Extracts high-contrast dark RGB colors per sub-pixel from `img` for `HalftoneColorMode::PhotoRgb`.
+fn extract_photo_rgb_grid(img: &DynamicImage, grid_w: usize) -> Vec<(u8, u8, u8)> {
+    let (src_w, src_h) = img.dimensions();
+    let side = src_w.min(src_h).max(1);
+    let crop_x = (src_w.saturating_sub(side)) / 2;
+    let crop_y = (src_h.saturating_sub(side)) / 2;
+    let cropped = img.crop_imm(crop_x, crop_y, side, side);
+    let resized = cropped.resize_exact(grid_w as u32, grid_w as u32, FilterType::Triangle);
+
+    let mut colors = vec![(15u8, 23u8, 42u8); grid_w * grid_w];
+    for (x, y, pixel) in resized.pixels() {
+        let ch = pixel.channels();
+        let alpha = if ch.len() > 3 {
+            ch[3] as f32 / 255.0
+        } else {
+            1.0
+        };
+        let r = (ch[0] as f32 * alpha + 15.0 * (1.0 - alpha)).round() as u8;
+        let g = (ch[1] as f32 * alpha + 23.0 * (1.0 - alpha)).round() as u8;
+        let b = (ch[2] as f32 * alpha + 42.0 * (1.0 - alpha)).round() as u8;
+        colors[(y as usize) * grid_w + (x as usize)] = clamp_dark_rgb((r, g, b));
+    }
+    colors
 }
 
 /// Center-crops, resizes, adjusts contrast/brightness, and dithers an image to a binary `w x w` grid.
@@ -344,6 +435,19 @@ pub fn render_halftone_vietqr(opts: &QrRenderOptions, ht: HalftoneParams) -> Res
     };
 
     let dither_grid = dither_image_to_grid(&dyn_img, sub_w, ht);
+    let photo_rgb_grid = if ht.color_mode == HalftoneColorMode::PhotoRgb {
+        Some(extract_photo_rgb_grid(&dyn_img, sub_w))
+    } else {
+        None
+    };
+
+    let base_fg = match ht.color_mode {
+        HalftoneColorMode::BankBrand => {
+            clamp_dark_rgb(qr_center_badge_brand_color(opts.bank_code))
+        }
+        HalftoneColorMode::Custom | HalftoneColorMode::PhotoRgb => clamp_dark_rgb(ht.fg_color),
+    };
+    let (bg_r, bg_g, bg_b) = ht.bg_color;
 
     // Pixel size of each sub-pixel (each QR module is `SUB * sub_px` pixels wide)
     let sub_px = (opts.scale / 2).clamp(3, 6);
@@ -356,6 +460,13 @@ pub fn render_halftone_vietqr(opts: &QrRenderOptions, ht: HalftoneParams) -> Res
     let canvas_h = qr_area_px + footer_h;
 
     let mut rgb_pixels = vec![255u8; canvas_w * canvas_h * 3];
+    if (bg_r, bg_g, bg_b) != (255, 255, 255) {
+        for chunk in rgb_pixels.chunks_exact_mut(3) {
+            chunk[0] = bg_r;
+            chunk[1] = bg_g;
+            chunk[2] = bg_b;
+        }
+    }
     let qr_ox = quiet_mods * mod_px;
     let qr_oy = quiet_mods * mod_px;
 
@@ -367,22 +478,31 @@ pub fn render_halftone_vietqr(opts: &QrRenderOptions, ht: HalftoneParams) -> Res
 
             for sy in 0..SUB {
                 for sx in 0..SUB {
+                    let sub_idx = (my * SUB + sy) * sub_w + (mx * SUB + sx);
                     let is_dark = if protected || (sx == 1 && sy == 1) {
                         qr_dark
                     } else {
-                        dither_grid[(my * SUB + sy) * sub_w + (mx * SUB + sx)]
+                        dither_grid[sub_idx]
                     };
 
                     if is_dark {
+                        let (dr, dg, db) = if protected {
+                            base_fg
+                        } else if let Some(ref rgb_grid) = photo_rgb_grid {
+                            rgb_grid[sub_idx]
+                        } else {
+                            base_fg
+                        };
+
                         let start_px = qr_ox + mx * mod_px + sx * sub_px;
                         let start_py = qr_oy + my * mod_px + sy * sub_px;
                         for dy in 0..sub_px {
                             let row_offset = (start_py + dy) * canvas_w;
                             for dx in 0..sub_px {
                                 let idx = (row_offset + start_px + dx) * 3;
-                                rgb_pixels[idx] = 15;
-                                rgb_pixels[idx + 1] = 23;
-                                rgb_pixels[idx + 2] = 42;
+                                rgb_pixels[idx] = dr;
+                                rgb_pixels[idx + 1] = dg;
+                                rgb_pixels[idx + 2] = db;
                             }
                         }
                     }
@@ -443,7 +563,7 @@ pub fn render_halftone_vietqr(opts: &QrRenderOptions, ht: HalftoneParams) -> Res
                 base_y,
                 PxScale::from(18.0),
                 &line1,
-                (15, 23, 42),
+                base_fg,
             );
             draw_centered_text(
                 &font,

@@ -847,6 +847,42 @@
           <input type="range" id="brightnessRange" min="-0.4" max="0.4" value="0.0" step="0.05">
         </div>
       </div>
+
+      <div class="form-group" style="margin-top: 12px;">
+        <label>Chế độ màu Halftone (Color Engine)</label>
+        <div class="radio-group" style="grid-template-columns: repeat(3, 1fr);">
+          <div class="mode-pill active colormode-pill" data-colormode="custom">
+            <span>Màu Tùy Chỉnh</span>
+          </div>
+          <div class="mode-pill colormode-pill" data-colormode="bank">
+            <span>Theo Màu Ngân Hàng</span>
+          </div>
+          <div class="mode-pill colormode-pill" data-colormode="photo">
+            <span>Đa Sắc Theo Ảnh</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="customColorControls" style="margin-top: 10px;">
+        <div class="form-grid" style="margin-bottom: 8px;">
+          <div class="form-group">
+            <label for="fgColorInput">Màu hạt QR (Foreground)</label>
+            <input type="color" id="fgColorInput" value="#0f172a" style="height: 38px; padding: 4px; cursor: pointer;">
+          </div>
+          <div class="form-group">
+            <label for="bgColorInput">Màu nền giấy (Background)</label>
+            <input type="color" id="bgColorInput" value="#ffffff" style="height: 38px; padding: 4px; cursor: pointer;">
+          </div>
+        </div>
+        <div class="chip-row">
+          <button type="button" class="chip-btn color-preset-btn" data-fg="#0f172a" data-bg="#ffffff">Đen Slate</button>
+          <button type="button" class="chip-btn color-preset-btn" data-fg="#4c1d95" data-bg="#faf5ff">Tím TPBank</button>
+          <button type="button" class="chip-btn color-preset-btn" data-fg="#065f46" data-bg="#f0fdf4">Lục VCB</button>
+          <button type="button" class="chip-btn color-preset-btn" data-fg="#881337" data-bg="#fff1f2">Đỏ TCB</button>
+          <button type="button" class="chip-btn color-preset-btn" data-fg="#1e3a8a" data-bg="#eff6ff">Xanh Navy</button>
+          <button type="button" class="chip-btn color-preset-btn" data-fg="#451a03" data-bg="#fefce8">Cổ Điển Sepia</button>
+        </div>
+      </div>
     </div>
 
     <div class="form-group" style="margin-top: 16px;">
@@ -990,11 +1026,16 @@
   var contrastVal = document.getElementById('contrastVal');
   var brightnessRange = document.getElementById('brightnessRange');
   var brightnessVal = document.getElementById('brightnessVal');
+  var colormodePills = document.querySelectorAll('.colormode-pill');
+  var customColorControls = document.getElementById('customColorControls');
+  var fgColorInput = document.getElementById('fgColorInput');
+  var bgColorInput = document.getElementById('bgColorInput');
 
   var currentPurpose = 'online';
   var currentTemplate = 'ptn';
   var currentMode = 'auto';
   var currentDither = 'floyd';
+  var currentColorMode = 'custom';
   var uploadedLogoFile = null;
   var uploadedHalftoneFile = null;
   var debounceTimer = null;
@@ -1129,6 +1170,27 @@
     triggerRefresh();
   });
 
+  colormodePills.forEach(function(pill) {
+    pill.addEventListener('click', function() {
+      currentColorMode = this.getAttribute('data-colormode');
+      colormodePills.forEach(function(p) { p.classList.remove('active'); });
+      this.classList.add('active');
+      customColorControls.style.display = currentColorMode === 'custom' ? 'block' : 'none';
+      triggerRefresh();
+    });
+  });
+
+  fgColorInput.addEventListener('input', triggerRefresh);
+  bgColorInput.addEventListener('input', triggerRefresh);
+
+  document.querySelectorAll('.color-preset-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      fgColorInput.value = this.getAttribute('data-fg');
+      bgColorInput.value = this.getAttribute('data-bg');
+      triggerRefresh();
+    });
+  });
+
   // Quick Amount chips
   document.querySelectorAll('.chip-btn[data-amt]').forEach(function(btn) {
     btn.addEventListener('click', function() {
@@ -1185,6 +1247,9 @@
       params.append('dither', currentDither);
       params.append('contrast', contrastRange.value);
       params.append('brightness', brightnessRange.value);
+      params.append('colormode', currentColorMode);
+      params.append('fg', fgColorInput.value);
+      params.append('bg', bgColorInput.value);
     } else if (currentMode === 'text') {
       params.append('badge', badgeText.value || 'PAY');
     } else if (currentMode === 'none') {
@@ -1205,6 +1270,9 @@
       dither: currentDither,
       contrast: contrastRange.value,
       brightness: brightnessRange.value,
+      colormode: currentColorMode,
+      fg: fgColorInput.value,
+      bg: bgColorInput.value,
       queryParams: params
     };
   }
@@ -1245,6 +1313,9 @@
         formData.append('dither', p.dither);
         formData.append('contrast', p.contrast);
         formData.append('brightness', p.brightness);
+        formData.append('colormode', p.colormode);
+        formData.append('fg', p.fg);
+        formData.append('bg', p.bg);
         formData.append('halftone_img', uploadedHalftoneFile);
       } else {
         formData.append('logo', uploadedLogoFile);

@@ -15,7 +15,9 @@ use crate::core::emvco::{
     build_vietqr_payload, normalize_bank_code_for_qr, sanitize_vietqr_account,
     sanitize_vietqr_memo, sanitize_vietqr_name,
 };
-use crate::core::halftone::{DitherMethod, HalftoneParams, render_halftone_vietqr};
+use crate::core::halftone::{
+    DitherMethod, HalftoneColorMode, HalftoneParams, parse_hex_rgb, render_halftone_vietqr,
+};
 use crate::server::web_hub::render_interactive_bank_pay_hub_html;
 use crate::ui::STUDIO_HTML;
 
@@ -40,6 +42,10 @@ pub struct QrQueryParams {
     pub dither: Option<String>,
     pub contrast: Option<f32>,
     pub brightness: Option<f32>,
+    pub colormode: Option<String>,
+    pub fg: Option<String>,
+    pub color: Option<String>,
+    pub bg: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -150,10 +156,20 @@ async fn qr_png_get_handler(Query(params): Query<QrQueryParams>) -> Response {
     };
 
     let render_result = if template == QrTemplate::Halftone {
+        let fg_raw = params.fg.as_deref().or(params.color.as_deref());
         let ht = HalftoneParams {
             dither: DitherMethod::from_str_opt(params.dither.as_deref()),
             contrast: params.contrast.unwrap_or(1.25),
             brightness: params.brightness.unwrap_or(0.0),
+            color_mode: HalftoneColorMode::from_str_opt(
+                params.colormode.as_deref().or(fg_raw),
+            ),
+            fg_color: fg_raw.and_then(parse_hex_rgb).unwrap_or((15, 23, 42)),
+            bg_color: params
+                .bg
+                .as_deref()
+                .and_then(parse_hex_rgb)
+                .unwrap_or((255, 255, 255)),
         };
         render_halftone_vietqr(&render_opts, ht)
     } else {
@@ -202,6 +218,9 @@ async fn qr_png_post_handler(mut multipart: Multipart) -> Response {
     let mut dither_str: Option<String> = None;
     let mut contrast: f32 = 1.25;
     let mut brightness: f32 = 0.0;
+    let mut colormode_str: Option<String> = None;
+    let mut fg_str: Option<String> = None;
+    let mut bg_str: Option<String> = None;
     let mut logo_bytes: Option<Vec<u8>> = None;
 
     while let Ok(Some(field)) = multipart.next_field().await {
@@ -231,6 +250,9 @@ async fn qr_png_post_handler(mut multipart: Multipart) -> Response {
                 "dither" => dither_str = Some(text),
                 "contrast" => contrast = text.parse().unwrap_or(1.25),
                 "brightness" => brightness = text.parse().unwrap_or(0.0),
+                "colormode" => colormode_str = Some(text),
+                "fg" | "color" => fg_str = Some(text),
+                "bg" => bg_str = Some(text),
                 _ => {}
             }
         }
@@ -305,6 +327,17 @@ async fn qr_png_post_handler(mut multipart: Multipart) -> Response {
             dither: DitherMethod::from_str_opt(dither_str.as_deref()),
             contrast,
             brightness,
+            color_mode: HalftoneColorMode::from_str_opt(
+                colormode_str.as_deref().or(fg_str.as_deref()),
+            ),
+            fg_color: fg_str
+                .as_deref()
+                .and_then(parse_hex_rgb)
+                .unwrap_or((15, 23, 42)),
+            bg_color: bg_str
+                .as_deref()
+                .and_then(parse_hex_rgb)
+                .unwrap_or((255, 255, 255)),
         };
         render_halftone_vietqr(&render_opts, ht)
     } else {

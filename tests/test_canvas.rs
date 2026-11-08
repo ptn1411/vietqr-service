@@ -106,16 +106,18 @@ fn test_render_qr_with_no_center_logo() {
 #[test]
 fn test_render_halftone_vietqr_with_dither_methods() {
     use vietqr_service::core::canvas::{QrRenderOptions, QrTemplate};
-    use vietqr_service::core::halftone::{DitherMethod, HalftoneParams, render_halftone_vietqr};
+    use vietqr_service::core::halftone::{
+        DitherMethod, HalftoneColorMode, HalftoneParams, render_halftone_vietqr,
+    };
 
     let payload = "00020101021238570010A000000727012700069704230111692386868880208QRIBFTTA53037045405500005802VN62250821UNG HO PHAM THANH NAM6304E6BC";
     let custom_bg = generate_dummy_logo_png();
 
-    for dither in [
-        DitherMethod::FloydSteinberg,
-        DitherMethod::Atkinson,
-        DitherMethod::Bayer4x4,
-        DitherMethod::Threshold,
+    for (dither, color_mode) in [
+        (DitherMethod::FloydSteinberg, HalftoneColorMode::Custom),
+        (DitherMethod::Atkinson, HalftoneColorMode::BankBrand),
+        (DitherMethod::Bayer4x4, HalftoneColorMode::PhotoRgb),
+        (DitherMethod::Threshold, HalftoneColorMode::Custom),
     ] {
         let opts = QrRenderOptions {
             payload,
@@ -137,6 +139,9 @@ fn test_render_halftone_vietqr_with_dither_methods() {
                 dither,
                 contrast: 1.3,
                 brightness: 0.05,
+                color_mode,
+                fg_color: (76, 29, 149),
+                bg_color: (250, 245, 255),
             },
         )
         .expect("render halftone QR");
