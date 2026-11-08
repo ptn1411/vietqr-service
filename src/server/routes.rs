@@ -79,6 +79,7 @@ pub fn app_router() -> Router {
         .route("/api/qr.png", get(qr_png_get_handler).post(qr_png_post_handler))
         .route("/qr.png", get(qr_png_get_handler))
         .route("/img", get(qr_png_get_handler).post(qr_png_post_handler))
+        .route("/api/admin/login", post(admin_login_handler))
         .route("/api/halftone/preset", post(halftone_export_preset_handler))
         .route("/api/halftone/import", post(halftone_import_preset_handler))
         .route("/api/banks", get(banks_list_handler))
@@ -544,9 +545,97 @@ async fn halftone_export_preset_handler(mut multipart: Multipart) -> Response {
     }
 }
 
+#[derive(Debug, Deserialize)]
+pub struct AdminLoginRequest {
+    pub username: String,
+    pub password: String,
+}
+
+fn admin_credentials() -> (String, String) {
+    let user = std::env::var("ADMIN_USER").unwrap_or_else(|_| "admin".to_string());
+    let pass = std::env::var("ADMIN_PASSWORD").unwrap_or_else(|_| "ptn1411@admin".to_string());
+    (user, pass)
+}
+
+pub fn compute_admin_token(user: &str, pass: &str) -> String {
+    let mut hash: u64 = 0xcbf29ce484222325;
+    for b in user
+        .as_bytes()
+        .iter()
+        .chain(b":vietqr_admin_salt:")
+        .chain(pass.as_bytes())
+    {
+        hash ^= *b as u64;
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    let mut hash2: u64 = hash ^ 0x84222325cbf29ce4;
+    for b in pass.as_bytes().iter().chain(user.as_bytes()) {
+        hash2 ^= *b as u64;
+        hash2 = hash2.wrapping_mul(0x100000001b3);
+    }
+    format!("adm_{:016x}{:016x}", hash, hash2)
+}
+
+fn verify_admin_headers(headers: &HeaderMap) -> bool {
+    let (user, pass) = admin_credentials();
+    let expected = compute_admin_token(&user, &pass);
+
+    if let Some(val) = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+    {
+        if let Some(bearer) = val.strip_prefix("Bearer ") {
+            if bearer.trim() == expected {
+                return true;
+            }
+        }
+    }
+    if let Some(val) = headers.get("x-admin-token").and_then(|v| v.to_str().ok()) {
+        if val.trim() == expected {
+            return true;
+        }
+    }
+    false
+}
+
+async fn admin_login_handler(Json(req): Json<AdminLoginRequest>) -> Response {
+    let (expected_user, expected_pass) = admin_credentials();
+    if req.username.trim() == expected_user && req.password == expected_pass {
+        let token = compute_admin_token(&expected_user, &expected_pass);
+        (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "status": "ok",
+                "username": expected_user,
+                "token": token,
+            })),
+        )
+            .into_response()
+    } else {
+        (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({
+                "error": "Sai tài khoản hoặc mật khẩu Admin"
+            })),
+        )
+            .into_response()
+    }
+}
+
 async fn halftone_import_preset_handler(
+    headers: HeaderMap,
     Json(preset_json): Json<HalftonePresetJson>,
 ) -> Response {
+    if !verify_admin_headers(&headers) {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({
+                "error": "Yêu cầu quyền Admin để nạp JSON mẫu lên server"
+            })),
+        )
+            .into_response();
+    }
+
     match compile_and_register_preset_json(&preset_json) {
         Ok(compiled) => (
             StatusCode::OK,

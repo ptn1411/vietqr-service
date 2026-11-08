@@ -352,7 +352,7 @@ async fn test_img_endpoint_halftone_template() {
 }
 
 #[tokio::test]
-async fn test_halftone_preset_import_and_get_render() {
+async fn test_halftone_preset_import_requires_admin_and_get_render() {
     use vietqr_service::core::halftone::{HalftoneParams, create_and_register_preset};
 
     let preset_json =
@@ -360,6 +360,43 @@ async fn test_halftone_preset_import_and_get_render() {
     let body_json = serde_json::to_vec(&preset_json).unwrap();
 
     let app = app_router();
+
+    // 1. Unauthenticated import MUST fail with 401 Unauthorized
+    let unauth_res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/halftone/import")
+                .header("content-type", "application/json")
+                .body(Body::from(body_json.clone()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(unauth_res.status(), StatusCode::UNAUTHORIZED);
+
+    // 2. Login as Admin to obtain token
+    let login_res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/admin/login")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"username":"admin","password":"ptn1411@admin"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(login_res.status(), StatusCode::OK);
+    let login_bytes = to_bytes(login_res.into_body(), usize::MAX).await.unwrap();
+    let login_json: serde_json::Value = serde_json::from_slice(&login_bytes).unwrap();
+    let token = login_json["token"].as_str().expect("admin token");
+
+    // 3. Authenticated import succeeds with 200 OK
     let import_res = app
         .clone()
         .oneshot(
@@ -367,6 +404,7 @@ async fn test_halftone_preset_import_and_get_render() {
                 .method("POST")
                 .uri("/api/halftone/import")
                 .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {token}"))
                 .body(Body::from(body_json))
                 .unwrap(),
         )
