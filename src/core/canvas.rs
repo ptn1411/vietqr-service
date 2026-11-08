@@ -22,6 +22,7 @@ pub enum QrTemplate {
     QrOnly,
     Standee,
     SePay,
+    Halftone,
 }
 
 impl QrTemplate {
@@ -31,6 +32,7 @@ impl QrTemplate {
             Some("qronly") | Some("qr_only") | Some("raw") => QrTemplate::QrOnly,
             Some("standee") | Some("card") | Some("print") => QrTemplate::Standee,
             Some("sepay") | Some("ptn") | Some("brand") | Some("color") => QrTemplate::SePay,
+            Some("halftone") | Some("art") | Some("photo") => QrTemplate::Halftone,
             _ => QrTemplate::Default,
         }
     }
@@ -1451,6 +1453,9 @@ pub fn render_standee_qr(opts: &QrRenderOptions) -> Result<Vec<u8>> {
 
 pub fn render_vietqr_with_options(opts: QrRenderOptions) -> Result<Vec<u8>> {
     match opts.template {
+        QrTemplate::Halftone => {
+            crate::core::halftone::render_halftone_vietqr(&opts, Default::default())
+        }
         QrTemplate::SePay => render_sepay_ptn_qr(&opts),
         QrTemplate::Standee => render_standee_qr(&opts),
         QrTemplate::QrOnly => {

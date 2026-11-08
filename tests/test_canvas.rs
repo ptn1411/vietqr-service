@@ -102,3 +102,45 @@ fn test_render_qr_with_no_center_logo() {
     let img = image::load_from_memory(&png).expect("valid PNG");
     assert_eq!(img.width(), img.height());
 }
+
+#[test]
+fn test_render_halftone_vietqr_with_dither_methods() {
+    use vietqr_service::core::canvas::{QrRenderOptions, QrTemplate};
+    use vietqr_service::core::halftone::{DitherMethod, HalftoneParams, render_halftone_vietqr};
+
+    let payload = "00020101021238570010A000000727012700069704230111692386868880208QRIBFTTA53037045405500005802VN62250821UNG HO PHAM THANH NAM6304E6BC";
+    let custom_bg = generate_dummy_logo_png();
+
+    for dither in [
+        DitherMethod::FloydSteinberg,
+        DitherMethod::Atkinson,
+        DitherMethod::Bayer4x4,
+        DitherMethod::Threshold,
+    ] {
+        let opts = QrRenderOptions {
+            payload,
+            logo: CenterLogo::ImageLogo(&custom_bg),
+            template: QrTemplate::Halftone,
+            scale: 8,
+            show_info: false,
+            full_acc: true,
+            bank_code: "TPB",
+            account: "69238686888",
+            account_name: Some("PHAM THANH NAM"),
+            amount: 50000,
+            memo: Some("UNG HO PHAM THANH NAM"),
+            footer: QrFooterOptions::default(),
+        };
+        let png = render_halftone_vietqr(
+            &opts,
+            HalftoneParams {
+                dither,
+                contrast: 1.3,
+                brightness: 0.05,
+            },
+        )
+        .expect("render halftone QR");
+        let img = image::load_from_memory(&png).expect("valid Halftone PNG");
+        assert_eq!(img.width(), img.height());
+    }
+}

@@ -15,6 +15,7 @@ use crate::core::emvco::{
     build_vietqr_payload, normalize_bank_code_for_qr, sanitize_vietqr_account,
     sanitize_vietqr_memo, sanitize_vietqr_name,
 };
+use crate::core::halftone::{DitherMethod, HalftoneParams, render_halftone_vietqr};
 use crate::server::web_hub::render_interactive_bank_pay_hub_html;
 use crate::ui::STUDIO_HTML;
 
@@ -36,6 +37,9 @@ pub struct QrQueryParams {
     pub logo: Option<String>,
     pub scale: Option<usize>,
     pub square: Option<bool>,
+    pub dither: Option<String>,
+    pub contrast: Option<f32>,
+    pub brightness: Option<f32>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -145,7 +149,18 @@ async fn qr_png_get_handler(Query(params): Query<QrQueryParams>) -> Response {
         footer,
     };
 
-    match render_vietqr_with_options(render_opts) {
+    let render_result = if template == QrTemplate::Halftone {
+        let ht = HalftoneParams {
+            dither: DitherMethod::from_str_opt(params.dither.as_deref()),
+            contrast: params.contrast.unwrap_or(1.25),
+            brightness: params.brightness.unwrap_or(0.0),
+        };
+        render_halftone_vietqr(&render_opts, ht)
+    } else {
+        render_vietqr_with_options(render_opts)
+    };
+
+    match render_result {
         Ok(png_bytes) => {
             let mut headers = HeaderMap::new();
             headers.insert(header::CONTENT_TYPE, HeaderValue::from_static("image/png"));
@@ -184,11 +199,14 @@ async fn qr_png_post_handler(mut multipart: Multipart) -> Response {
     let mut badge: Option<String> = None;
     let mut scale: usize = 8;
     let mut square: bool = false;
+    let mut dither_str: Option<String> = None;
+    let mut contrast: f32 = 1.25;
+    let mut brightness: f32 = 0.0;
     let mut logo_bytes: Option<Vec<u8>> = None;
 
     while let Ok(Some(field)) = multipart.next_field().await {
         let field_name = field.name().unwrap_or_default().to_string();
-        if field_name == "logo" {
+        if field_name == "logo" || field_name == "halftone_img" {
             if let Ok(bytes) = field.bytes().await {
                 if !bytes.is_empty() {
                     logo_bytes = Some(bytes.to_vec());
@@ -210,6 +228,9 @@ async fn qr_png_post_handler(mut multipart: Multipart) -> Response {
                 "badge" => badge = Some(text),
                 "scale" => scale = text.parse().unwrap_or(8),
                 "square" => square = text.eq_ignore_ascii_case("true") || text == "1",
+                "dither" => dither_str = Some(text),
+                "contrast" => contrast = text.parse().unwrap_or(1.25),
+                "brightness" => brightness = text.parse().unwrap_or(0.0),
                 _ => {}
             }
         }
@@ -279,7 +300,18 @@ async fn qr_png_post_handler(mut multipart: Multipart) -> Response {
         footer,
     };
 
-    match render_vietqr_with_options(render_opts) {
+    let render_result = if template == QrTemplate::Halftone {
+        let ht = HalftoneParams {
+            dither: DitherMethod::from_str_opt(dither_str.as_deref()),
+            contrast,
+            brightness,
+        };
+        render_halftone_vietqr(&render_opts, ht)
+    } else {
+        render_vietqr_with_options(render_opts)
+    };
+
+    match render_result {
         Ok(png_bytes) => {
             let mut headers = HeaderMap::new();
             headers.insert(header::CONTENT_TYPE, HeaderValue::from_static("image/png"));

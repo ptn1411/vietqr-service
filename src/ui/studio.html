@@ -177,7 +177,7 @@
     }
     .template-grid {
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
+      grid-template-columns: repeat(3, 1fr);
       gap: 8px;
       margin-bottom: 20px;
     }
@@ -654,6 +654,10 @@
         <div class="template-name">Standee Card</div>
         <div class="template-sub">standee</div>
       </div>
+      <div class="template-card" data-template="halftone">
+        <div class="template-name">Halftone Art</div>
+        <div class="template-sub">QR Chèn Ảnh</div>
+      </div>
     </div>
 
     <div class="section-heading">
@@ -770,35 +774,78 @@
       </div>
     </div>
 
-    <div class="form-group" style="margin-top: 8px;">
-      <label>Logo ở giữa mã QR (Center Badge)</label>
-      <div class="radio-group">
-        <div class="mode-pill active" data-mode="auto" id="modeAuto">
-          <span>Huy hiệu Bank</span>
+    <div id="centerBadgeSection">
+      <div class="form-group" style="margin-top: 8px;">
+        <label>Logo ở giữa mã QR (Center Badge)</label>
+        <div class="radio-group">
+          <div class="mode-pill active" data-mode="auto" id="modeAuto">
+            <span>Huy hiệu Bank</span>
+          </div>
+          <div class="mode-pill" data-mode="none" id="modeNone">
+            <span>Không Logo (QR Thuần)</span>
+          </div>
+          <div class="mode-pill" data-mode="text" id="modeText">
+            <span>Chữ Tùy Biến</span>
+          </div>
+          <div class="mode-pill" data-mode="image" id="modeImage">
+            <span>Tải Ảnh Logo Lên</span>
+          </div>
         </div>
-        <div class="mode-pill" data-mode="none" id="modeNone">
-          <span>Không Logo (QR Thuần)</span>
-        </div>
-        <div class="mode-pill" data-mode="text" id="modeText">
-          <span>Chữ Tùy Biến</span>
-        </div>
-        <div class="mode-pill" data-mode="image" id="modeImage">
-          <span>Tải Ảnh Logo Lên</span>
+      </div>
+
+      <div id="textBadgeField" class="form-group" style="margin-top: 12px; display: none;">
+        <label for="badgeText">Chữ huy hiệu (tối đa 6 ký tự)</label>
+        <input type="text" id="badgeText" value="PAY" maxlength="6" placeholder="VD: VIP, PAY, NAM">
+      </div>
+
+      <div id="imageUploadField" style="display: none;">
+        <div class="file-dropzone" id="dropzone">
+          <input type="file" id="logoFileInput" accept="image/png, image/jpeg, image/webp" style="display: none;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent); margin-bottom: 6px;"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+          <div id="dropzoneText" style="font-size: 13px; font-weight: 600; color: #334155;">Bấm để chọn file logo hoặc kéo thả vào đây (PNG/JPG/WebP)</div>
+          <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Tự động co dãn tâm và đệm viền trắng an toàn cho camera</div>
         </div>
       </div>
     </div>
 
-    <div id="textBadgeField" class="form-group" style="margin-top: 12px; display: none;">
-      <label for="badgeText">Chữ huy hiệu (tối đa 6 ký tự)</label>
-      <input type="text" id="badgeText" value="PAY" maxlength="6" placeholder="VD: VIP, PAY, NAM">
-    </div>
+    <div id="halftoneSection" style="display: none; margin-top: 10px; padding: 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;">
+      <div class="form-group">
+        <label>Ảnh nền chèn vào hạt QR (Halftone Sub-pixel 3x3)</label>
+        <div class="file-dropzone" id="halftoneDropzone" style="margin-top: 4px; background: #ffffff;">
+          <input type="file" id="halftoneFileInput" accept="image/png, image/jpeg, image/webp" style="display: none;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary); margin-bottom: 6px;"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+          <div id="halftoneDropzoneText" style="font-size: 13px; font-weight: 600; color: #0f172a;">Chọn ảnh chân dung / logo để hòa trộn vào mã QR (hoặc dùng mẫu mặc định)</div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Giữ nguyên tâm 1x1 mỗi module QR chuẩn EMVCo Level H và bảo vệ 100% 3 góc định vị</div>
+        </div>
+      </div>
 
-    <div id="imageUploadField" style="display: none;">
-      <div class="file-dropzone" id="dropzone">
-        <input type="file" id="logoFileInput" accept="image/png, image/jpeg, image/webp" style="display: none;">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent); margin-bottom: 6px;"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
-        <div id="dropzoneText" style="font-size: 13px; font-weight: 600; color: #334155;">Bấm để chọn file logo hoặc kéo thả vào đây (PNG/JPG/WebP)</div>
-        <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Tự động co dãn tâm và đệm viền trắng an toàn cho camera</div>
+      <div class="form-group" style="margin-top: 12px;">
+        <label>Thuật toán phân tán hạt (Dithering Engine)</label>
+        <div class="radio-group">
+          <div class="mode-pill active dither-pill" data-dither="floyd">
+            <span>Floyd-Steinberg</span>
+          </div>
+          <div class="mode-pill dither-pill" data-dither="atkinson">
+            <span>Atkinson Nét</span>
+          </div>
+          <div class="mode-pill dither-pill" data-dither="bayer">
+            <span>Bayer 4x4</span>
+          </div>
+          <div class="mode-pill dither-pill" data-dither="threshold">
+            <span>Đen Trắng Gắt</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-grid" style="margin-top: 12px; margin-bottom: 0;">
+        <div class="form-group">
+          <label for="contrastRange">Độ tương phản: <span id="contrastVal">1.25</span></label>
+          <input type="range" id="contrastRange" min="0.5" max="2.5" value="1.25" step="0.05">
+        </div>
+        <div class="form-group">
+          <label for="brightnessRange">Độ sáng: <span id="brightnessVal">0.00</span></label>
+          <input type="range" id="brightnessRange" min="-0.4" max="0.4" value="0.0" step="0.05">
+        </div>
       </div>
     </div>
 
@@ -933,11 +980,23 @@
   var dropzone = document.getElementById('dropzone');
   var dropzoneText = document.getElementById('dropzoneText');
   var logoFileInput = document.getElementById('logoFileInput');
+  var centerBadgeSection = document.getElementById('centerBadgeSection');
+  var halftoneSection = document.getElementById('halftoneSection');
+  var halftoneDropzone = document.getElementById('halftoneDropzone');
+  var halftoneDropzoneText = document.getElementById('halftoneDropzoneText');
+  var halftoneFileInput = document.getElementById('halftoneFileInput');
+  var ditherPills = document.querySelectorAll('.dither-pill');
+  var contrastRange = document.getElementById('contrastRange');
+  var contrastVal = document.getElementById('contrastVal');
+  var brightnessRange = document.getElementById('brightnessRange');
+  var brightnessVal = document.getElementById('brightnessVal');
 
   var currentPurpose = 'online';
   var currentTemplate = 'ptn';
   var currentMode = 'auto';
+  var currentDither = 'floyd';
   var uploadedLogoFile = null;
+  var uploadedHalftoneFile = null;
   var debounceTimer = null;
   var currentBlobUrl = null;
   var toastTimer = null;
@@ -980,10 +1039,17 @@
       purposeStandee.classList.add('active');
       purposeOnline.classList.remove('active');
       footerFields.style.display = 'none';
-    } else if (tmpl === 'ptn' || tmpl === 'sepay' || tmpl === 'qronly') {
+    } else if (tmpl === 'ptn' || tmpl === 'sepay' || tmpl === 'qronly' || tmpl === 'halftone') {
       footerFields.style.display = 'none';
     } else {
       footerFields.style.display = 'grid';
+    }
+    if (tmpl === 'halftone') {
+      centerBadgeSection.style.display = 'none';
+      halftoneSection.style.display = 'block';
+    } else {
+      centerBadgeSection.style.display = 'block';
+      halftoneSection.style.display = 'none';
     }
     triggerRefresh();
   }
@@ -1032,6 +1098,35 @@
       dropzone.classList.add('has-file');
       triggerRefresh();
     }
+  });
+
+  halftoneDropzone.addEventListener('click', function() { halftoneFileInput.click(); });
+  halftoneFileInput.addEventListener('change', function() {
+    if (this.files && this.files[0]) {
+      uploadedHalftoneFile = this.files[0];
+      halftoneDropzoneText.textContent = 'Ảnh nền Halftone: ' + uploadedHalftoneFile.name;
+      halftoneDropzone.classList.add('has-file');
+      triggerRefresh();
+    }
+  });
+
+  ditherPills.forEach(function(pill) {
+    pill.addEventListener('click', function() {
+      currentDither = this.getAttribute('data-dither');
+      ditherPills.forEach(function(p) { p.classList.remove('active'); });
+      this.classList.add('active');
+      triggerRefresh();
+    });
+  });
+
+  contrastRange.addEventListener('input', function() {
+    contrastVal.textContent = Number(this.value).toFixed(2);
+    triggerRefresh();
+  });
+
+  brightnessRange.addEventListener('input', function() {
+    brightnessVal.textContent = Number(this.value).toFixed(2);
+    triggerRefresh();
   });
 
   // Quick Amount chips
@@ -1086,7 +1181,11 @@
     if (f2) params.append('footer2', f2);
     params.append('scale', scale);
 
-    if (currentMode === 'text') {
+    if (currentTemplate === 'halftone') {
+      params.append('dither', currentDither);
+      params.append('contrast', contrastRange.value);
+      params.append('brightness', brightnessRange.value);
+    } else if (currentMode === 'text') {
       params.append('badge', badgeText.value || 'PAY');
     } else if (currentMode === 'none') {
       params.append('badge', 'none');
@@ -1103,6 +1202,9 @@
       f1: f1,
       f2: f2,
       scale: scale,
+      dither: currentDither,
+      contrast: contrastRange.value,
+      brightness: brightnessRange.value,
       queryParams: params
     };
   }
@@ -1123,7 +1225,10 @@
     updateLinks();
     var p = buildParams();
 
-    if (currentMode === 'image' && uploadedLogoFile) {
+    var usePostUpload = (currentTemplate === 'halftone' && uploadedHalftoneFile) ||
+                        (currentTemplate !== 'halftone' && currentMode === 'image' && uploadedLogoFile);
+
+    if (usePostUpload) {
       var formData = new FormData();
       formData.append('bank', p.bank);
       formData.append('acc', p.acc);
@@ -1136,7 +1241,14 @@
       formData.append('footer1', p.f1);
       formData.append('footer2', p.f2);
       formData.append('scale', p.scale);
-      formData.append('logo', uploadedLogoFile);
+      if (currentTemplate === 'halftone') {
+        formData.append('dither', p.dither);
+        formData.append('contrast', p.contrast);
+        formData.append('brightness', p.brightness);
+        formData.append('halftone_img', uploadedHalftoneFile);
+      } else {
+        formData.append('logo', uploadedLogoFile);
+      }
 
       fetch('/img', { method: 'POST', body: formData })
         .then(function(res) {

@@ -335,3 +335,18 @@ async fn test_img_endpoint_with_badge_none() {
     let img = image::load_from_memory(&bytes).expect("valid clean QR PNG without logo");
     assert_eq!(img.width(), img.height());
 }
+
+#[tokio::test]
+async fn test_img_endpoint_halftone_template() {
+    let app = app_router();
+    let uri = "/img?bank=TPB&acc=69238686888&amount=500000&template=halftone&dither=atkinson&contrast=1.35";
+    let response = app
+        .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let img = image::load_from_memory(&bytes).expect("valid Halftone QR PNG");
+    assert!(img.height() > img.width());
+}
